@@ -8,5 +8,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-//    public SecurityFilterChain
+    public SecurityFilterChain securityFilterChain(){
+        return null;
+    }
 }
