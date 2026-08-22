@@ -8,6 +8,8 @@ public class XitlarApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(XitlarApplication.class, args);
+
+		//
 	}
 
 }
