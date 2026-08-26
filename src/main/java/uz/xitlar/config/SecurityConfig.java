@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static uz.xitlar.enums.Role.ADMIN;
+import static uz.xitlar.enums.Role.MODERATOR;
 
 @Configuration
 @EnableWebSecurity
@@ -36,8 +37,14 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests( (authorize)->authorize
-                        .requestMatchers(HttpMethod.GET, "/hello").permitAll()
-                                .requestMatchers("/**").hasRole(ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/hello").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sign-in").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sign-up").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/password").authenticated()
+                        .requestMatchers("/api/v1/moderators/**").hasRole(ADMIN.name())
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/role").hasRole(ADMIN.name())
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/*").hasRole(ADMIN.name())
+                        .requestMatchers("/api/v1/users/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
                                 .anyRequest().authenticated()
                         )
                 .sessionManagement((session)->session

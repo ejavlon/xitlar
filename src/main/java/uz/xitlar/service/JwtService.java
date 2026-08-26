@@ -2,22 +2,23 @@ package uz.xitlar.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
 
-    @Value("token.secret.key")
+    @Value("${token.secret.key}")
     private String secret;
 
     public String extractUsername(String jwt){
@@ -39,7 +40,7 @@ public class JwtService {
     }
 
     private Key getSecretKey() {
-        byte [] bytes = Decoders.BASE64.decode(secret);
+        byte [] bytes = secret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(bytes);
     }
 
@@ -52,6 +53,10 @@ public class JwtService {
                 .expiration(new Date(System.currentTimeMillis() + 604800000))
                 .signWith(getSecretKey())
                 .compact();
+    }
+
+    public String generateToken(UserDetails userDetails){
+        return generateToken(new HashMap<>(),userDetails);
     }
 
 

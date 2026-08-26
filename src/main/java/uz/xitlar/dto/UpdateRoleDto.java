@@ -5,15 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import uz.xitlar.enums.Role;
 
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 @Data
-public class SignInDto {
-    @NotNull(message = "Username must not be null")
-    private String username;
-
-    @NotNull(message = "Password must not be null")
-    private String password;
+public class UpdateRoleDto {
+    @NotNull(message = "Role must not be null")
+    private Role role;
 }

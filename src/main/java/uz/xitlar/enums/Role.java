@@ -14,6 +14,7 @@ import static uz.xitlar.enums.Permission.*;
 @RequiredArgsConstructor
 public enum Role {
     USER(Collections.emptySet()),
+    MODERATOR(Collections.emptySet()),
     ADMIN(Set.of(
             ADMIN_READ,
             ADMIN_CREATE,

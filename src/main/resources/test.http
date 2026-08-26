@@ -1,5 +1,109 @@
-### GET request to example server
-GET https://examples.http-client.intellij.net/get
-    ?generated-in=IntelliJ IDEA
+### Hello
+GET http://localhost:8080/api/v1/hello
 
-###
+### Sign up
+POST http://localhost:8080/api/v1/sign-up
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "username": "testuser",
+  "password": "password123",
+  "confirmPassword": "password123"
+}
+
+### Sign in
+POST http://localhost:8080/api/v1/sign-in
+Content-Type: application/json
+
+{
+  "username": "ejavlon",
+  "password": "root"
+}
+
+### Update user (ADMIN)
+PUT http://localhost:8080/api/v1/users/1
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlamF2bG9uIiwiaWF0IjoxNzg3NTk0ODY4LCJleHAiOjE3ODgxOTk2Njh9.6ZOi_wkDPJISwY_9-ESqna3-qbZJSbAkWVMULxcfXfU
+
+{
+  "firstName": "Javlonbek",
+  "lastName": "Ergashev",
+  "username": "ejavlon"
+}
+
+### Delete user (ADMIN)
+DELETE http://localhost:8080/api/v1/users/2
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlamF2bG9uIiwiaWF0IjoxNzg3NTk0ODY4LCJleHAiOjE3ODgxOTk2Njh9.6ZOi_wkDPJISwY_9-ESqna3-qbZJSbAkWVMULxcfXfU
+
+### Change own password (any authenticated user)
+PUT http://localhost:8080/api/v1/users/me/password
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlamF2bG9uIiwiaWF0IjoxNzg3NTk0ODY4LCJleHAiOjE3ODgxOTk2Njh9.6ZOi_wkDPJISwY_9-ESqna3-qbZJSbAkWVMULxcfXfU
+
+{
+  "currentPassword": "password123",
+  "newPassword": "newpass456",
+  "confirmPassword": "newpass456"
+}
+
+### Reset user password (ADMIN)
+PUT http://localhost:8080/api/v1/users/3/password
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlamF2bG9uIiwiaWF0IjoxNzg3NTk0ODY4LCJleHAiOjE3ODgxOTk2Njh9.6ZOi_wkDPJISwY_9-ESqna3-qbZJSbAkWVMULxcfXfU
+
+{
+  "newPassword": "resetpass789"
+}
+
+### Update user role (ADMIN)
+PUT http://localhost:8080/api/v1/users/3/role
+Content-Type: application/json
+Authorization: Bearer <admin-token>
+
+{
+  "role": "USER"
+}
+
+### Create moderator (ADMIN)
+POST http://localhost:8080/api/v1/moderators
+Content-Type: application/json
+Authorization: Bearer <admin-token>
+
+{
+  "firstName": "Mod",
+  "lastName": "Erator",
+  "username": "moderator1",
+  "password": "modpass123",
+  "confirmPassword": "modpass123"
+}
+
+### List moderators (ADMIN)
+GET http://localhost:8080/api/v1/moderators
+Authorization: Bearer <admin-token>
+
+### Update moderator (ADMIN)
+PUT http://localhost:8080/api/v1/moderators/2
+Content-Type: application/json
+Authorization: Bearer <admin-token>
+
+{
+  "firstName": "Updated",
+  "lastName": "Moderator",
+  "username": "moderator1"
+}
+
+### Reset moderator password (ADMIN)
+PUT http://localhost:8080/api/v1/moderators/2/password
+Content-Type: application/json
+Authorization: Bearer <admin-token>
+
+{
+  "newPassword": "newmodpass123"
+}
+
+### Delete moderator (ADMIN)
+DELETE http://localhost:8080/api/v1/moderators/2
+Authorization: Bearer <admin-token>
+
