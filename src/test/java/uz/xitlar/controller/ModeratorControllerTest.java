@@ -134,7 +134,7 @@ class ModeratorControllerTest {
     }
 
     @Test
-    void moderatorResetsRegularUserPasswordAndNewPasswordWorks() throws Exception {
+    void moderatorCannotResetUserPassword() throws Exception {
         createModerator("mod_password_manager");
         String token = signIn("mod_password_manager", "modpass123");
         createUser("mod_pw_target");
@@ -147,15 +147,7 @@ class ModeratorControllerTest {
                         .content("""
                                 {"newPassword": "resetbymod789"}
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        mockMvc.perform(post(BASE_URL + "/sign-in")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username": "mod_pw_target", "password": "resetbymod789"}
-                                """))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test

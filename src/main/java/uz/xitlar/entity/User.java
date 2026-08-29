@@ -47,13 +47,13 @@ public class User extends BaseEntity implements UserDetails, Serializable {
     String password;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 10)
+    @Column(length = 20)
     Role role;
 
     @Override
     @NullMarked
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        return role != null ? role.getAuthorities() : List.of();
     }
 
     @Override

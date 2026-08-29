@@ -54,8 +54,7 @@ public class ModeratorService {
     }
 
     public ResponseApi<List<ModeratorResponse>> getModerators(){
-        List<ModeratorResponse> moderators = userRepository.findAll().stream()
-                .filter(user -> user.getRole() == Role.MODERATOR)
+        List<ModeratorResponse> moderators = userRepository.findByRole(Role.MODERATOR).stream()
                 .map(this::toResponse)
                 .toList();
 

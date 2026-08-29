@@ -16,8 +16,22 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Image extends BaseEntity {
 
+    @Column(name = "original_name", nullable = false)
+    String originalName;
+
+    @Column(name = "stored_name", nullable = false, unique = true)
+    String storedName;
+
+    @Column(name = "content_type", nullable = false)
+    String contentType;
+
+    @Column(nullable = false)
+    Long size;
+
+    @Column(name = "directory_path", nullable = false)
+    String directoryPath;
+
     @Column(nullable = false)
     String url;
-
-    String fileName;
 }
+

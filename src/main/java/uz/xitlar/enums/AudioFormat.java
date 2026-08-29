@@ -5,10 +5,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum AudioFormat {
-    MP3("mp3"),
-    FLAC("flac"),
-    WAV("wav"),
-    AAC("aac");
+    MP3("mp3");
 
     @Getter
     private final String formatName;

@@ -33,19 +33,38 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http){
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests( (authorize)->authorize
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/hello").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sign-in").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sign-up").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/password").authenticated()
-                        .requestMatchers("/api/v1/moderators/**").hasRole(ADMIN.name())
+                        .requestMatchers("/api/v1/moderators", "/api/v1/moderators/**").hasRole(ADMIN.name())
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/role").hasRole(ADMIN.name())
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/*").hasRole(ADMIN.name())
-                        .requestMatchers("/api/v1/users/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
-                                .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/*/password").hasRole(ADMIN.name())
+                        .requestMatchers("/api/v1/users", "/api/v1/users/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/images/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/images").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/images/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/artists", "/api/v1/artists/**").permitAll()
+                        .requestMatchers("/api/v1/artists", "/api/v1/artists/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/musics", "/api/v1/musics/**").permitAll()
+                        .requestMatchers("/api/v1/musics", "/api/v1/musics/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/lyrics", "/api/v1/lyrics/**").permitAll()
+                        .requestMatchers("/api/v1/lyrics", "/api/v1/lyrics/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/v1/comments", "/api/v1/comments/**").permitAll()
+                        .requestMatchers("/api/v1/comments", "/api/v1/comments/**").authenticated()
+                        .anyRequest().authenticated()
                         )
                 .sessionManagement((session)->session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

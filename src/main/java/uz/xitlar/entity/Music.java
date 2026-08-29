@@ -24,14 +24,32 @@ public class Music extends BaseEntity {
     @Column(nullable = false)
     String title;
 
-    @Column(nullable = false, length = 1000)
-    String audioUrl;
+    @Column(nullable = false)
+    String storedName;
+
+    @Column(nullable = false)
+    String originalFileName;
+
+    @Column(nullable = false)
+    Long audioSize;
+
+    @Column(nullable = false)
+    String audioContentType;
 
     Integer duration;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "artist_id")
     Artist artist;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "album_id")
+    Album album;
+
+    @Enumerated(EnumType.STRING)
+    uz.xitlar.enums.Genre genre;
+
+    Integer trackNumber;
 
     @CreatedDate
     @Column(name = "added_date", nullable = false, updatable = false)

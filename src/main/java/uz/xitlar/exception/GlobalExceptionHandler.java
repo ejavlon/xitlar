@@ -30,6 +30,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ResponseApi<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException e) {
+        log.warn("Database integrity violation: {}", e.getMessage());
+        return build(HttpStatus.CONFLICT, "Database constraint violation or duplicate entity");
+    }
+
     @ExceptionHandler(PasswordMismatchException.class)
     public ResponseEntity<ResponseApi<Void>> handlePasswordMismatch(PasswordMismatchException e) {
         return build(HttpStatus.BAD_REQUEST, e.getMessage());
@@ -69,10 +75,36 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, message.isBlank() ? "Validation failed" : message);
     }
 
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ResponseApi<Void>> handleFileStorage(FileStorageException e) {
+        log.error("File storage error: {}", e.getMessage(), e);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "File storage failed: " + e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidAudioFileException.class)
+    public ResponseEntity<ResponseApi<Void>> handleInvalidAudioFile(InvalidAudioFileException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(UnsupportedFileTypeException.class)
+    public ResponseEntity<ResponseApi<Void>> handleUnsupportedFileType(UnsupportedFileTypeException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ResponseApi<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "File size exceeds the maximum allowed limit");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ResponseApi<Void>> handleUnexpected(Exception e) {
         log.error("Unhandled exception", e);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ResponseApi<Void>> handleIllegalArgument(IllegalArgumentException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
     private ResponseEntity<ResponseApi<Void>> build(HttpStatus status, String message) {

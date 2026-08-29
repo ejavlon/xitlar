@@ -36,4 +36,22 @@ class UserTest {
 
         assertFalse(json.contains("secret-bcrypt-hash"));
     }
+
+    @Test
+    void userAuthoritiesContainRoleAndPermissions() {
+        User user = User.builder()
+                .firstName("Admin")
+                .lastName("User")
+                .username("admin")
+                .role(Role.ADMIN)
+                .build();
+
+        var authorities = user.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .toList();
+
+        assertEquals(5, authorities.size());
+        org.junit.jupiter.api.Assertions.assertTrue(authorities.contains("ROLE_ADMIN"));
+        org.junit.jupiter.api.Assertions.assertTrue(authorities.contains("ADMIN_READ"));
+    }
 }

@@ -149,7 +149,7 @@ class UserControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("username: Username must not be null"));
+                .andExpect(jsonPath("$.message").value("username: Username must not be blank"));
     }
 
     @Test
@@ -245,6 +245,17 @@ class UserControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + getAdminToken()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void adminCannotDeleteOwnAccount() throws Exception {
+        Integer ownId = getUserId("ejavlon");
+
+        mockMvc.perform(delete(BASE_URL + "/users/" + ownId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + getAdminToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Access denied"));
     }
 
     @Test

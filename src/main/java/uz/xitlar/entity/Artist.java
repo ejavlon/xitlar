@@ -21,18 +21,21 @@ public class Artist extends BaseEntity{
     @Column(nullable = false)
     String name;
 
+    @Builder.Default
     @Column(nullable = false)
     Integer countOfTrack = 0;
 
     @Enumerated(EnumType.STRING)
     Genre genre;
 
-    Integer voteCount;
+    @Builder.Default
+    Integer voteCount = 0;
 
     // min = 0, max = 5
-    Double averageRating;
+    @Builder.Default
+    Double averageRating = 0.0;
 
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @JoinColumn(name = "image_id")
     Image image;
 

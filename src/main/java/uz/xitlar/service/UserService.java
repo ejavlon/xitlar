@@ -62,14 +62,14 @@ public class UserService {
     }
 
     public ResponseApi<String> signIn(SignInDto signInDto){
-        authenticationManager.authenticate(
+        var authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         signInDto.getUsername(),
                         signInDto.getPassword()
                 )
         );
 
-        User user = findUserByUsernameOrThrow(signInDto.getUsername());
+        User user = (User) authentication.getPrincipal();
 
         return ResponseApi.<String>builder()
                 .success(true)
@@ -80,6 +80,7 @@ public class UserService {
 
     public ResponseApi<UserResponse> getUser(String actorUsername, Integer id){
         User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdminOrModerator(actor);
         User user = findUserByIdOrThrow(id);
 
         assertModeratorCanManage(actor, user);
@@ -93,9 +94,13 @@ public class UserService {
 
     public ResponseApi<List<UserResponse>> getUsers(String actorUsername){
         User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdminOrModerator(actor);
 
-        List<UserResponse> users = userRepository.findAll().stream()
-                .filter(user -> actor.getRole() != Role.MODERATOR || user.getRole() == Role.USER)
+        List<User> userList = actor.getRole() == Role.MODERATOR
+                ? userRepository.findByRole(Role.USER)
+                : userRepository.findAll();
+
+        List<UserResponse> users = userList.stream()
                 .map(this::toResponse)
                 .toList();
 
@@ -109,6 +114,7 @@ public class UserService {
     @Transactional
     public ResponseApi<UserResponse> update(String actorUsername, Integer id, UpdateUserDto updateUserDto){
         User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdminOrModerator(actor);
         User user = findUserByIdOrThrow(id);
 
         assertModeratorCanManage(actor, user);
@@ -131,8 +137,18 @@ public class UserService {
     }
 
     @Transactional
-    public ResponseApi<Void> delete(Integer id){
+    public ResponseApi<Void> delete(String actorUsername, Integer id){
+        User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdmin(actor);
         User user = findUserByIdOrThrow(id);
+
+        if (actor.getId().equals(id)) {
+            throw new AccessDeniedException("Cannot delete your own account");
+        }
+
+        if (user.getRole() == Role.ADMIN && userRepository.countByRole(Role.ADMIN) <= 1) {
+            throw new AccessDeniedException("Cannot delete the last admin account");
+        }
 
         userRepository.delete(user);
 
@@ -166,9 +182,8 @@ public class UserService {
     @Transactional
     public ResponseApi<Void> resetPassword(String actorUsername, Integer id, ResetPasswordDto resetPasswordDto){
         User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdmin(actor);
         User user = findUserByIdOrThrow(id);
-
-        assertModeratorCanManage(actor, user);
 
         user.setPassword(passwordEncoder.encode(resetPasswordDto.getNewPassword()));
         userRepository.save(user);
@@ -182,6 +197,7 @@ public class UserService {
     @Transactional
     public ResponseApi<UserResponse> updateRole(Integer id, String actorUsername, UpdateRoleDto updateRoleDto){
         User actor = findUserByUsernameOrThrow(actorUsername);
+        assertAdmin(actor);
 
         if (actor.getId().equals(id)) {
             throw new SelfRoleChangeException("Admin cannot change own role");
@@ -207,6 +223,18 @@ public class UserService {
     public User findUserByUsernameOrThrow(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new DataNotFoundException("User not found"));
+    }
+
+    private void assertAdmin(User actor) {
+        if (actor.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only admins have permission to perform this action");
+        }
+    }
+
+    private void assertAdminOrModerator(User actor) {
+        if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.MODERATOR) {
+            throw new AccessDeniedException("Only admins and moderators have permission to perform this action");
+        }
     }
 
     private void assertModeratorCanManage(User actor, User target) {

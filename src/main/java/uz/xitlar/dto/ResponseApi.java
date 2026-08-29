@@ -1,26 +1,16 @@
 package uz.xitlar.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@AllArgsConstructor
+@NoArgsConstructor
 @Builder
-public class ResponseApi <T>{
-    @Getter
-    @Setter
+@Data
+public class ResponseApi<T> {
     private T data;
-
     private Boolean success;
-
-    @Getter
-    @Setter
     private String message;
-
-    public Boolean isSuccess() {
-        return success;
-    }
-
-    public void setSuccess(Boolean success) {
-        this.success = success;
-    }
 }

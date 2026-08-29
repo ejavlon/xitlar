@@ -5,7 +5,9 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "lyrics")
+@Table(name = "lyrics", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_lyrics_music_id", columnNames = "music_id")
+})
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
