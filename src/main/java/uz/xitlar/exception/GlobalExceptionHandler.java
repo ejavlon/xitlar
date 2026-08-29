@@ -107,6 +107,14 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ResponseApi<Void>> handleMethodArgumentTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException e) {
+        String message = String.format("Parameter '%s' must be of type '%s'", e.getName(),
+                e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "valid type");
+        return build(HttpStatus.BAD_REQUEST, message);
+    }
+
     private ResponseEntity<ResponseApi<Void>> build(HttpStatus status, String message) {
         return ResponseEntity.status(status)
                 .body(ResponseApi.<Void>builder()

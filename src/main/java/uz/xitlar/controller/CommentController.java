@@ -54,6 +54,8 @@ public class CommentController {
         return commentService.deleteComment(id, principal);
     }
 
+    private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of("id", "createdAt");
+
     @Operation(summary = "Musiqaning barcha izohlarini olish", description = "Musiqa ID bo'yicha barcha izohlar ro'yxatini paginatsiya bilan olish")
     @GetMapping("/music/{musicId}")
     public ResponseApi<Page<CommentResponse>> getByMusicId(
@@ -65,8 +67,9 @@ public class CommentController {
         if (musicId == null || musicId <= 0) {
             throw new IllegalArgumentException("musicId must be positive");
         }
+        String safeSortBy = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "id";
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, safeSortBy));
         return commentService.getCommentsByMusic(musicId, pageable);
     }
 }
