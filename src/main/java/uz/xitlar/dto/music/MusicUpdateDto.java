@@ -1,7 +1,5 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.music;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,19 +13,10 @@ import uz.xitlar.enums.Genre;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class MusicCreateDto {
-
-    @NotBlank(message = "Title must not be blank")
+public class MusicUpdateDto {
     String title;
-
     Integer artistId;
-
     Integer albumId;
-
     Genre genre;
-
     Integer trackNumber;
-
-    @Valid
-    LyricsCreateNestedDto lyrics;
 }

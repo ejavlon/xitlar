@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.user;
 
 import lombok.Builder;
 import lombok.Getter;

@@ -13,10 +13,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import uz.xitlar.dto.CommentCreateDto;
-import uz.xitlar.dto.CommentResponse;
-import uz.xitlar.dto.CommentUpdateDto;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.comment.CommentCreateDto;
+import uz.xitlar.dto.comment.CommentResponse;
+import uz.xitlar.dto.comment.CommentUpdateDto;
+import uz.xitlar.dto.common.ResponseApi;
 import uz.xitlar.service.CommentService;
 
 @Slf4j
@@ -67,9 +67,11 @@ public class CommentController {
         if (musicId == null || musicId <= 0) {
             throw new IllegalArgumentException("musicId must be positive");
         }
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
         String safeSortBy = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "id";
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, safeSortBy));
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(direction, safeSortBy));
         return commentService.getCommentsByMusic(musicId, pageable);
     }
 }

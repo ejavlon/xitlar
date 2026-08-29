@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import uz.xitlar.dto.MusicCreateDto;
+import uz.xitlar.dto.music.MusicCreateDto;
 import uz.xitlar.repository.MusicRepository;
 import uz.xitlar.util.AudioTestHelper;
 

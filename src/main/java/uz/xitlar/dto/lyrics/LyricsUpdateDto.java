@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.lyrics;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +11,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class LyricsCreateNestedDto {
+public class LyricsUpdateDto {
 
     @NotBlank(message = "Matn bo'sh bo'lishi mumkin emas")
     String text;

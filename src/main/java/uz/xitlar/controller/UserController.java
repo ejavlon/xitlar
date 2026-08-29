@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uz.xitlar.dto.ResponseApi;
-import uz.xitlar.dto.SignInDto;
-import uz.xitlar.dto.SignUpDto;
-import uz.xitlar.dto.UpdatePasswordDto;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.user.SignInDto;
+import uz.xitlar.dto.user.SignUpDto;
+import uz.xitlar.dto.user.UpdatePasswordDto;
 import uz.xitlar.service.UserService;
 
 @Tag(name = "User & Auth Controller", description = "Foydalanuvchilar, autentifikatsiya va profil amallari")

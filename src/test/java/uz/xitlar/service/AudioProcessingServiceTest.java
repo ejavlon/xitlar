@@ -8,7 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
-import uz.xitlar.dto.AudioMetadata;
+import uz.xitlar.dto.music.AudioMetadata;
 import uz.xitlar.entity.Album;
 import uz.xitlar.entity.Artist;
 import uz.xitlar.entity.Image;

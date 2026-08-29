@@ -1,7 +1,8 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.album;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import uz.xitlar.dto.image.ImageResponse;
 
 @Data
 @NoArgsConstructor

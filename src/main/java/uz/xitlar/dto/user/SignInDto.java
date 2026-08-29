@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.user;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

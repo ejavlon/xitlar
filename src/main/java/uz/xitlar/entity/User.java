@@ -1,7 +1,5 @@
 package uz.xitlar.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -32,18 +30,16 @@ import java.util.List;
 public class User extends BaseEntity implements UserDetails, Serializable {
 
     @Column(name = "first_name", nullable = false)
-    @JsonProperty(value = "first_name")
     String firstName;
 
     @Column(name = "last_name", nullable = false)
-    @JsonProperty(value = "last_name")
     String lastName;
 
     @Column(nullable = false, unique = true)
     String username;
 
     @Column(nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnore
     String password;
 
     @Enumerated(EnumType.STRING)

@@ -1,19 +1,20 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.comment;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class LyricsResponse {
+public class CommentResponse {
     Integer id;
     String text;
-    String language;
-    Boolean isSynced;
-    String lrcContent;
+    LocalDateTime createdAt;
     Integer musicId;
-    String musicTitle;
+    Integer userId;
+    String userName;
 }

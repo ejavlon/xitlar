@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.comment;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

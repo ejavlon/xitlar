@@ -13,7 +13,7 @@ import org.jaudiotagger.tag.images.ArtworkFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import uz.xitlar.dto.AudioMetadata;
+import uz.xitlar.dto.music.AudioMetadata;
 import uz.xitlar.entity.Album;
 import uz.xitlar.entity.Artist;
 import uz.xitlar.enums.AudioFormat;
@@ -89,7 +89,7 @@ public class AudioProcessingService {
             try {
                 audioFile = AudioFileIO.read(audioIoFile);
             } catch (Exception e) {
-                throw new InvalidAudioFileException("Corrupted or unreadable audio file: " + e.getMessage(), e);
+                throw new InvalidAudioFileException("Corrupted or unreadable audio file", e);
             }
 
             AudioHeader header = audioFile.getAudioHeader();
@@ -167,9 +167,15 @@ public class AudioProcessingService {
         return metadata;
     }
 
+    private static final long MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024L; // 50MB
+
     private void validateAudioFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new InvalidAudioFileException("Failed to store empty file");
+        }
+
+        if (file.getSize() > MAX_AUDIO_FILE_SIZE) {
+            throw new InvalidAudioFileException("Audio file exceeds maximum allowed size of 50MB");
         }
 
         String originalFilename = file.getOriginalFilename();

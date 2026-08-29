@@ -2,14 +2,31 @@ package uz.xitlar.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpRange;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
-import uz.xitlar.dto.*;
+import uz.xitlar.dto.album.AlbumResponse;
+import uz.xitlar.dto.artist.ArtistResponse;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.image.ImageResponse;
+import uz.xitlar.dto.lyrics.LyricsCreateNestedDto;
+import uz.xitlar.dto.lyrics.LyricsResponse;
+import uz.xitlar.dto.music.AudioMetadata;
+import uz.xitlar.dto.music.MusicCreateDto;
+import uz.xitlar.dto.music.MusicResponse;
+import uz.xitlar.dto.music.MusicUpdateDto;
 import uz.xitlar.entity.Album;
 import uz.xitlar.entity.Artist;
 import uz.xitlar.entity.Image;
@@ -20,6 +37,11 @@ import uz.xitlar.exception.DuplicateEntityException;
 import uz.xitlar.repository.AlbumRepository;
 import uz.xitlar.repository.ArtistRepository;
 import uz.xitlar.repository.MusicRepository;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -339,5 +361,97 @@ public class MusicService {
                 .addedDate(music.getAddedDate())
                 .lyrics(lyricsResponse)
                 .build();
+    }
+
+    public ResponseEntity<Resource> streamAudio(Integer id, HttpHeaders headers) {
+        Music music = musicRepository.findById(id)
+                .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + id));
+
+        Path path = audioProcessingService.getAudioPath(music.getStoredName());
+        Resource resource;
+        try {
+            resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new DataNotFoundException("Audio file not found or not readable");
+            }
+        } catch (DataNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new DataNotFoundException("Audio file not found");
+        }
+
+        long contentLength;
+        try {
+            contentLength = resource.contentLength();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        MediaType mediaType = MediaType.parseMediaType(
+                music.getAudioContentType() != null ? music.getAudioContentType() : "audio/mpeg"
+        );
+
+        List<HttpRange> httpRanges;
+        try {
+            httpRanges = headers.getRange();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
+                    .build();
+        }
+
+        // 1. No Range requested -> 200 OK with the COMPLETE audio file
+        if (httpRanges == null || httpRanges.isEmpty()) {
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .contentLength(contentLength)
+                    .contentType(mediaType)
+                    .body(resource);
+        }
+
+        // 2. Range requested
+        HttpRange range = httpRanges.get(0);
+        long start;
+        long end;
+        try {
+            start = range.getRangeStart(contentLength);
+            end = range.getRangeEnd(contentLength);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
+                    .build();
+        }
+
+        // Validate range bounds
+        if (start >= contentLength || end >= contentLength || start > end) {
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
+                    .build();
+        }
+
+        long rangeLength = end - start + 1;
+
+        try (InputStream is = resource.getInputStream()) {
+            long skipped = 0;
+            while (skipped < start) {
+                long s = is.skip(start - skipped);
+                if (s <= 0) break;
+                skipped += s;
+            }
+            byte[] buffer = is.readNBytes((int) rangeLength);
+            ByteArrayResource partialResource = new ByteArrayResource(buffer);
+
+            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                    .header(HttpHeaders.CONTENT_RANGE, String.format("bytes %d-%d/%d", start, end, contentLength))
+                    .contentLength(rangeLength)
+                    .contentType(mediaType)
+                    .body(partialResource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

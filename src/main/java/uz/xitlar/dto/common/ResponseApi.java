@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

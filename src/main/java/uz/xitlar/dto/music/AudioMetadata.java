@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.music;
 
 import lombok.Builder;
 import lombok.Data;

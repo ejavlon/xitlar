@@ -6,10 +6,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import uz.xitlar.dto.LyricsCreateDto;
-import uz.xitlar.dto.LyricsResponse;
-import uz.xitlar.dto.LyricsUpdateDto;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.lyrics.LyricsCreateDto;
+import uz.xitlar.dto.lyrics.LyricsResponse;
+import uz.xitlar.dto.lyrics.LyricsUpdateDto;
 import uz.xitlar.service.LyricsService;
 
 @Tag(name = "Lyrics Controller", description = "Musiqa matnlari bilan ishlash uchun API")

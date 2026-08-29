@@ -1,4 +1,4 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.music;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import uz.xitlar.dto.album.AlbumResponse;
+import uz.xitlar.dto.artist.ArtistResponse;
+import uz.xitlar.dto.lyrics.LyricsResponse;
 import uz.xitlar.enums.AudioFormat;
 import uz.xitlar.enums.Genre;
 

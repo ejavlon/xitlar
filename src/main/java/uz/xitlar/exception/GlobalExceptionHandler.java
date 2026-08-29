@@ -11,7 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.common.ResponseApi;
 
 import java.util.stream.Collectors;
 
@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<ResponseApi<Void>> handleFileStorage(FileStorageException e) {
         log.error("File storage error: {}", e.getMessage(), e);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "File storage failed: " + e.getMessage());
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "File storage operation failed");
     }
 
     @ExceptionHandler(InvalidAudioFileException.class)

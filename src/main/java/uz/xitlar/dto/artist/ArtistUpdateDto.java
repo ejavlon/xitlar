@@ -1,5 +1,6 @@
-package uz.xitlar.dto;
+package uz.xitlar.dto.artist;
 
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,14 +11,11 @@ import uz.xitlar.enums.Genre;
 @NoArgsConstructor
 @Builder
 @Data
-public class ArtistResponse {
+public class ArtistUpdateDto {
 
-    private Integer id;
+    @Pattern(regexp = ".*\\S.*", message = "Artist name must not be blank")
     private String name;
-    private Integer countOfTrack;
+
     private Genre genre;
-    private Integer voteCount;
-    private Double averageRating;
-    private ImageResponse image;
 
 }
