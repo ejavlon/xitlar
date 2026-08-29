@@ -57,6 +57,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 
+    @ExceptionHandler(OAuthAuthenticationException.class)
+    public ResponseEntity<ResponseApi<Void>> handleOAuthAuthentication(OAuthAuthenticationException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ResponseApi<Void>> handleAccessDenied(AccessDeniedException e) {
         return build(HttpStatus.FORBIDDEN, "Access denied");

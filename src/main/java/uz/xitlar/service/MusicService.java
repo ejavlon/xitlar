@@ -119,6 +119,7 @@ public class MusicService {
                     .bitrate(metadata.getBitrate())
                     .sampleRate(metadata.getSampleRate())
                     .audioFormat(metadata.getFormat())
+                    .audioHash(metadata.getAudioHash())
                     .artist(artist)
                     .album(album)
                     .genre(dto.getGenre())
@@ -207,6 +208,7 @@ public class MusicService {
             music.setBitrate(metadata.getBitrate());
             music.setSampleRate(metadata.getSampleRate());
             music.setAudioFormat(metadata.getFormat());
+            music.setAudioHash(metadata.getAudioHash());
 
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

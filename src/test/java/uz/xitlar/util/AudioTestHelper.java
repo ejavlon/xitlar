@@ -35,4 +35,34 @@ public class AudioTestHelper {
         }
         return baos.toByteArray();
     }
+
+    public static byte[] createMinimalValidMp3WithPayload(byte[] customPayload) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            baos.write(new byte[]{
+                    'I', 'D', '3',
+                    0x03, 0x00,
+                    0x00,
+                    0x00, 0x00, 0x00, 0x00
+            });
+
+            byte[] frame = new byte[417];
+            frame[0] = (byte) 0xFF;
+            frame[1] = (byte) 0xFB;
+            frame[2] = (byte) 0x90;
+            frame[3] = (byte) 0x00;
+
+            if (customPayload != null && customPayload.length > 0) {
+                int copyLen = Math.min(customPayload.length, frame.length - 4);
+                System.arraycopy(customPayload, 0, frame, 4, copyLen);
+            }
+
+            for (int i = 0; i < 10; i++) {
+                baos.write(frame);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return baos.toByteArray();
+    }
 }

@@ -16,11 +16,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.music.BulkMusicItemDto;
+import uz.xitlar.dto.music.BulkMusicUploadResponse;
 import uz.xitlar.dto.music.MusicCreateDto;
 import uz.xitlar.dto.music.MusicResponse;
 import uz.xitlar.dto.music.MusicUpdateDto;
+import uz.xitlar.service.BulkMusicUploadService;
 import uz.xitlar.service.MusicService;
 
+import java.util.List;
 import java.util.Set;
 
 @Slf4j
@@ -31,6 +35,7 @@ import java.util.Set;
 public class MusicController {
 
     private final MusicService musicService;
+    private final BulkMusicUploadService bulkMusicUploadService;
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "id", "title", "addedDate", "likeCount", "dislikeCount", "duration", "trackNumber", "genre"
@@ -42,6 +47,14 @@ public class MusicController {
             @Valid @RequestPart("data") MusicCreateDto dto,
             @RequestPart("file") MultipartFile file) {
         return musicService.createMusic(dto, file);
+    }
+
+    @Operation(summary = "Musiqalarni bulk/batch yuklash", description = "Bir vaqtda 1-50 ta musiqani yuklash (faqat ADMIN yoki MODERATOR uchun)")
+    @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseApi<BulkMusicUploadResponse> uploadBulk(
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart(value = "metadata", required = false) List<BulkMusicItemDto> metadata) {
+        return bulkMusicUploadService.uploadBulk(files, metadata);
     }
 
     @Operation(summary = "Musiqani yangilash", description = "Musiqa ma'lumotlarini yangilash (faqat ADMIN yoki MODERATOR uchun)")

@@ -15,4 +15,5 @@ public class AudioMetadata {
     private Integer bitrate;
     private Integer sampleRate;
     private AudioFormat format;
+    private String audioHash;
 }

@@ -28,6 +28,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 @Slf4j
@@ -38,6 +40,7 @@ public class AudioProcessingService {
     private final Path tempStorageDir;
     private final Path imageStorageDir;
     private final List<String> allowedContentTypes = Arrays.asList("audio/mpeg", "audio/mp3", "audio/x-mpeg");
+    private static final long MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024L; // 50MB
 
     public AudioProcessingService(@Value("${app.storage.path}") String storagePath) {
         this.audioStorageDir = Paths.get(storagePath).resolve("audio").normalize().toAbsolutePath();
@@ -81,6 +84,8 @@ public class AudioProcessingService {
         } catch (IOException e) {
             throw new FileStorageException("Failed to store temporary audio file", e);
         }
+
+        String audioHash = calculateSha256(tempLocation);
 
         AudioMetadata metadata;
         try {
@@ -154,6 +159,7 @@ public class AudioProcessingService {
                     .bitrate(bitrate)
                     .sampleRate(sampleRate)
                     .format(AudioFormat.MP3)
+                    .audioHash(audioHash)
                     .build();
 
         } catch (InvalidAudioFileException e) {
@@ -167,9 +173,34 @@ public class AudioProcessingService {
         return metadata;
     }
 
-    private static final long MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024L; // 50MB
+    public String calculateSha256(InputStream is) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[65536]; // 64KB buffer
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+            }
+            byte[] hashBytes = digest.digest();
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException | IOException e) {
+            throw new FileStorageException("Failed to calculate SHA-256 hash", e);
+        }
+    }
 
-    private void validateAudioFile(MultipartFile file) {
+    public String calculateSha256(Path path) {
+        try (InputStream is = Files.newInputStream(path)) {
+            return calculateSha256(is);
+        } catch (IOException e) {
+            throw new FileStorageException("Failed to read file for SHA-256 calculation: " + path, e);
+        }
+    }
+
+    public void validateAudioFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new InvalidAudioFileException("Failed to store empty file");
         }
@@ -208,7 +239,7 @@ public class AudioProcessingService {
         }
     }
 
-    private void deleteIfExistsSilently(Path path) {
+    public void deleteIfExistsSilently(Path path) {
         try {
             Files.deleteIfExists(path);
         } catch (IOException ignored) {
@@ -234,5 +265,17 @@ public class AudioProcessingService {
             throw new SecurityException("Unauthorized path access");
         }
         return filePath;
+    }
+
+    public Path getAudioStorageDir() {
+        return audioStorageDir;
+    }
+
+    public Path getTempStorageDir() {
+        return tempStorageDir;
+    }
+
+    public Path getImageStorageDir() {
+        return imageStorageDir;
     }
 }

@@ -46,6 +46,9 @@ public class CommentSecurityIntegrationTest {
     private CommentRepository commentRepository;
 
     @Autowired
+    private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private String adminToken;
@@ -61,6 +64,7 @@ public class CommentSecurityIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
 
         admin = userRepository.findByUsername(ADMIN_USERNAME).orElseGet(() ->

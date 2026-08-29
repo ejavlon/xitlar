@@ -33,8 +33,12 @@ class UserControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
+
     @BeforeEach
     void cleanupTestData() {
+        oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
     }
 

@@ -38,13 +38,20 @@ public class User extends BaseEntity implements UserDetails, Serializable {
     @Column(nullable = false, unique = true)
     String username;
 
-    @Column(nullable = false)
+    @Column(name = "email", unique = true)
+    String email;
+
+    @Column
     @com.fasterxml.jackson.annotation.JsonIgnore
     String password;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     Role role;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    List<OAuthAccount> oauthAccounts = new java.util.ArrayList<>();
 
     @Override
     @NullMarked

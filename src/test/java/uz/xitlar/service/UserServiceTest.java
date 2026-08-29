@@ -32,6 +32,9 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Autowired
+    private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private User moderator;
@@ -40,6 +43,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
+        oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
 
         moderator = userRepository.save(User.builder()
