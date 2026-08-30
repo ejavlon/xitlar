@@ -94,7 +94,7 @@ public class MusicSecurityIntegrationTest {
         mockMvc.perform(multipart("/api/v1/musics")
                         .file(data)
                         .file(file))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -112,7 +112,7 @@ public class MusicSecurityIntegrationTest {
     @Test
     void anonymousUser_CannotDeleteMusic() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/musics/1"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -154,7 +154,7 @@ public class MusicSecurityIntegrationTest {
 
         mockMvc.perform(multipart(org.springframework.http.HttpMethod.PUT, "/api/v1/musics/1")
                         .file(data))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

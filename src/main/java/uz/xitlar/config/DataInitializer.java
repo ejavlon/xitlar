@@ -57,6 +57,20 @@ public class DataInitializer implements CommandLineRunner {
                     )
                     """);
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts(user_id)");
+            
+            stmt.execute("ALTER TABLE comments ALTER COLUMN music_id DROP NOT NULL");
+            stmt.execute("ALTER TABLE comments ADD COLUMN IF NOT EXISTS artist_id INTEGER");
+            stmt.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'fk_comments_artist'
+                        ) THEN
+                            ALTER TABLE comments ADD CONSTRAINT fk_comments_artist FOREIGN KEY (artist_id) REFERENCES artists(id) ON DELETE CASCADE;
+                        END IF;
+                    END $$;
+                    """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_comments_artist_id ON comments(artist_id)");
         } catch (Exception e) {
             // Log warning if already executed or in test environment
         }

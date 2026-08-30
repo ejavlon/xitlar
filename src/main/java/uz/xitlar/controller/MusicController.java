@@ -23,6 +23,8 @@ import uz.xitlar.dto.music.MusicResponse;
 import uz.xitlar.dto.music.MusicUpdateDto;
 import uz.xitlar.service.BulkMusicUploadService;
 import uz.xitlar.service.MusicService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.List;
 import java.util.Set;
@@ -99,5 +101,34 @@ public class MusicController {
             @PathVariable Integer id,
             @RequestHeader HttpHeaders headers) {
         return musicService.streamAudio(id, headers);
+    }
+
+    @Operation(summary = "Audio faylni yuklab olish", description = "Musiqa faylini yuklab olish (Content-Disposition: attachment)")
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Resource> downloadAudio(
+            @PathVariable Integer id) {
+        return musicService.downloadAudio(id);
+    }
+
+    @Operation(summary = "Foydalanuvchi yoqtirgan musiqalarni olish", description = "Tizimga kirgan foydalanuvchi yoqtirgan musiqalar ro'yxatini olish")
+    @GetMapping("/liked")
+    public ResponseApi<List<MusicResponse>> getLikedMusics(@AuthenticationPrincipal UserDetails principal) {
+        return musicService.getLikedMusics(principal);
+    }
+
+    @Operation(summary = "Musiqani yoqtirish (Like)", description = "Musiqani yoqtirish yoki yoqtirishni bekor qilish (toggle)")
+    @PostMapping("/{id}/like")
+    public ResponseApi<MusicResponse> toggleLike(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal UserDetails principal) {
+        return musicService.toggleLike(id, principal);
+    }
+
+    @Operation(summary = "Musiqani yoqtirmaslik (Dislike)", description = "Musiqani yoqtirmaslik yoki yoqtirmaslikni bekor qilish (toggle)")
+    @PostMapping("/{id}/dislike")
+    public ResponseApi<MusicResponse> toggleDislike(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal UserDetails principal) {
+        return musicService.toggleDislike(id, principal);
     }
 }

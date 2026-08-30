@@ -95,6 +95,9 @@ public class CommentControllerTest {
     void create_MissingMusicId_Returns400() throws Exception {
         CommentCreateDto dto = new CommentCreateDto("Text", null);
 
+        when(commentService.createComment(any(CommentCreateDto.class), any()))
+                .thenThrow(new IllegalArgumentException("musicId must be positive"));
+
         mockMvc.perform(post("/api/v1/comments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))

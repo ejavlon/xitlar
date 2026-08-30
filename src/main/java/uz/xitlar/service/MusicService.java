@@ -32,11 +32,19 @@ import uz.xitlar.entity.Artist;
 import uz.xitlar.entity.Image;
 import uz.xitlar.entity.Lyrics;
 import uz.xitlar.entity.Music;
+import org.springframework.web.util.UriUtils;
+import java.nio.charset.StandardCharsets;
 import uz.xitlar.exception.DataNotFoundException;
 import uz.xitlar.exception.DuplicateEntityException;
+import uz.xitlar.entity.User;
 import uz.xitlar.repository.AlbumRepository;
 import uz.xitlar.repository.ArtistRepository;
 import uz.xitlar.repository.MusicRepository;
+import uz.xitlar.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import java.util.stream.Collectors;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,6 +62,7 @@ public class MusicService {
     private final AlbumRepository albumRepository;
     private final AudioProcessingService audioProcessingService;
     private final LyricsService lyricsService;
+    private final UserRepository userRepository;
 
     @Transactional
     public ResponseApi<MusicResponse> createMusic(MusicCreateDto dto, MultipartFile file) {
@@ -291,6 +300,27 @@ public class MusicService {
     }
 
     public MusicResponse toResponse(Music music) {
+        Boolean isLiked = false;
+        Boolean isDisliked = false;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+            Object principalObj = authentication.getPrincipal();
+            String username = null;
+            if (principalObj instanceof UserDetails userDetails) {
+                username = userDetails.getUsername();
+            } else if (principalObj instanceof User u) {
+                username = u.getUsername();
+            }
+            if (username != null) {
+                java.util.Optional<User> userOpt = userRepository.findByUsername(username);
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    isLiked = user.getLikedMusics().contains(music);
+                    isDisliked = user.getDislikedMusics().contains(music);
+                }
+            }
+        }
+
         ArtistResponse artistResponse = null;
         if (music.getArtist() != null) {
             Artist artist = music.getArtist();
@@ -359,6 +389,8 @@ public class MusicService {
                 .trackNumber(music.getTrackNumber())
                 .likeCount(music.getLikeCount())
                 .dislikeCount(music.getDislikeCount())
+                .isLiked(isLiked)
+                .isDisliked(isDisliked)
                 .audioFormat(music.getAudioFormat())
                 .addedDate(music.getAddedDate())
                 .lyrics(lyricsResponse)
@@ -455,5 +487,136 @@ public class MusicService {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    public ResponseEntity<Resource> downloadAudio(Integer id) {
+        Music music = musicRepository.findById(id)
+                .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + id));
+
+        Path path = audioProcessingService.getAudioPath(music.getStoredName());
+        Resource resource;
+        try {
+            resource = new UrlResource(path.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new DataNotFoundException("Audio file not found or not readable");
+            }
+        } catch (DataNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new DataNotFoundException("Audio file not found");
+        }
+
+        long contentLength;
+        try {
+            contentLength = resource.contentLength();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        MediaType mediaType = MediaType.parseMediaType(
+                music.getAudioContentType() != null ? music.getAudioContentType() : "audio/mpeg"
+        );
+
+        String filename = music.getOriginalFileName();
+        if (filename == null || filename.isBlank()) {
+            filename = music.getTitle() + "." + (music.getAudioFormat() != null ? music.getAudioFormat().name().toLowerCase() : "mp3");
+        }
+
+        String contentDispositionValue = "attachment; filename=\"" + filename + "\"; filename*=UTF-8''" + UriUtils.encode(filename, StandardCharsets.UTF_8);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDispositionValue)
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .contentLength(contentLength)
+                .contentType(mediaType)
+                .body(resource);
+    }
+
+    public ResponseApi<List<MusicResponse>> getLikedMusics(UserDetails principal) {
+        if (principal == null) {
+            return ResponseApi.<List<MusicResponse>>builder()
+                    .success(true)
+                    .message("Success")
+                    .data(List.of())
+                    .build();
+        }
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new DataNotFoundException("User not found: " + principal.getUsername()));
+
+        List<MusicResponse> likedList = user.getLikedMusics().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return ResponseApi.<List<MusicResponse>>builder()
+                .success(true)
+                .message("Success")
+                .data(likedList)
+                .build();
+    }
+
+    @Transactional
+    public ResponseApi<MusicResponse> toggleLike(Integer musicId, UserDetails principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User must be authenticated");
+        }
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new DataNotFoundException("User not found: " + principal.getUsername()));
+        
+        Music music = musicRepository.findById(musicId)
+                .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + musicId));
+
+        if (user.getLikedMusics().contains(music)) {
+            user.getLikedMusics().remove(music);
+            music.setLikeCount(Math.max(0, music.getLikeCount() - 1));
+        } else {
+            user.getLikedMusics().add(music);
+            music.setLikeCount(music.getLikeCount() + 1);
+            if (user.getDislikedMusics().contains(music)) {
+                user.getDislikedMusics().remove(music);
+                music.setDislikeCount(Math.max(0, music.getDislikeCount() - 1));
+            }
+        }
+
+        userRepository.save(user);
+        Music savedMusic = musicRepository.save(music);
+
+        return ResponseApi.<MusicResponse>builder()
+                .success(true)
+                .message("Like status updated successfully")
+                .data(toResponse(savedMusic))
+                .build();
+    }
+
+    @Transactional
+    public ResponseApi<MusicResponse> toggleDislike(Integer musicId, UserDetails principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User must be authenticated");
+        }
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new DataNotFoundException("User not found: " + principal.getUsername()));
+        
+        Music music = musicRepository.findById(musicId)
+                .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + musicId));
+
+        if (user.getDislikedMusics().contains(music)) {
+            user.getDislikedMusics().remove(music);
+            music.setDislikeCount(Math.max(0, music.getDislikeCount() - 1));
+        } else {
+            user.getDislikedMusics().add(music);
+            music.setDislikeCount(music.getDislikeCount() + 1);
+            if (user.getLikedMusics().contains(music)) {
+                user.getLikedMusics().remove(music);
+                music.setLikeCount(Math.max(0, music.getLikeCount() - 1));
+            }
+        }
+
+        userRepository.save(user);
+        Music savedMusic = musicRepository.save(music);
+
+        return ResponseApi.<MusicResponse>builder()
+                .success(true)
+                .message("Dislike status updated successfully")
+                .data(toResponse(savedMusic))
+                .build();
     }
 }

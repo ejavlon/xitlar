@@ -53,6 +53,24 @@ public class User extends BaseEntity implements UserDetails, Serializable {
     @Builder.Default
     List<OAuthAccount> oauthAccounts = new java.util.ArrayList<>();
 
+    @ManyToMany
+    @JoinTable(
+        name = "user_liked_musics",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "music_id")
+    )
+    @Builder.Default
+    List<Music> likedMusics = new java.util.ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+        name = "user_disliked_musics",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "music_id")
+    )
+    @Builder.Default
+    List<Music> dislikedMusics = new java.util.ArrayList<>();
+
     @Override
     @NullMarked
     public Collection<? extends GrantedAuthority> getAuthorities() {

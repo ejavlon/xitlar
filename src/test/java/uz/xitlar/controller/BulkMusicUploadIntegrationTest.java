@@ -19,7 +19,11 @@ import uz.xitlar.repository.ArtistRepository;
 import uz.xitlar.repository.MusicRepository;
 import uz.xitlar.repository.UserRepository;
 import uz.xitlar.util.AudioTestHelper;
+import uz.xitlar.service.AudioProcessingService;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
@@ -51,6 +55,9 @@ public class BulkMusicUploadIntegrationTest {
 
     @Autowired
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private AudioProcessingService audioProcessingService;
 
     private String adminToken;
     private String userToken;
@@ -99,6 +106,24 @@ public class BulkMusicUploadIntegrationTest {
             userRepository.findByUsername("test_bulk_mod").ifPresent(userRepository::delete);
             userRepository.flush();
         });
+
+        try {
+            if (audioProcessingService != null) {
+                cleanDirectory(audioProcessingService.getAudioStorageDir());
+                cleanDirectory(audioProcessingService.getTempStorageDir());
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void cleanDirectory(Path dir) {
+        if (dir == null || !Files.exists(dir)) return;
+        try (var stream = Files.list(dir)) {
+            stream.forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {}
+            });
+        } catch (IOException ignored) {}
     }
 
     private String getUserToken(String username, String password) throws Exception {
@@ -121,7 +146,7 @@ public class BulkMusicUploadIntegrationTest {
 
         mockMvc.perform(multipart("/api/v1/musics/bulk")
                         .file(file))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

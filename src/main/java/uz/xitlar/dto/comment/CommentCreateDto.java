@@ -18,7 +18,14 @@ public class CommentCreateDto {
     @Size(max = 2000, message = "Comment text must not exceed 2000 characters")
     String text;
 
-    @NotNull(message = "musicId must not be null")
     @Positive(message = "musicId must be positive")
     Integer musicId;
+
+    @Positive(message = "artistId must be positive")
+    Integer artistId;
+
+    public CommentCreateDto(String text, Integer musicId) {
+        this.text = text;
+        this.musicId = musicId;
+    }
 }

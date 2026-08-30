@@ -90,7 +90,8 @@ public class BulkMusicUploadServiceTest {
         bulkMusicUploadService = new BulkMusicUploadService(
                 uploadProcessor,
                 artistRepository,
-                albumRepository
+                albumRepository,
+                audioProcessingService
         );
         ReflectionTestUtils.setField(bulkMusicUploadService, "maxFiles", 50);
         ReflectionTestUtils.setField(bulkMusicUploadService, "cpuConcurrency", 4);
@@ -450,7 +451,15 @@ public class BulkMusicUploadServiceTest {
 
         TransactionSynchronizationManager.initSynchronization();
         try {
-            uploadProcessor.processOne(file, null, new HashMap<>(), new HashMap<>(), new Semaphore(4));
+            Path tempPath = audioProcessingService.copyToTemp(file);
+            UploadTask task = new UploadTask(
+                    tempPath,
+                    file.getOriginalFilename(),
+                    file.getContentType(),
+                    file.getSize(),
+                    null
+            );
+            uploadProcessor.processOne(task, new HashMap<>(), new HashMap<>(), new Semaphore(4));
 
             // Audio directory should be clean
             long fileCount = Files.list(audioProcessingService.getAudioStorageDir()).count();

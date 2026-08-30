@@ -432,4 +432,25 @@ public class MusicServiceTest {
         assertEquals(org.springframework.http.HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE, response.getStatusCode());
         assertEquals("bytes */2048", response.getHeaders().getFirst(org.springframework.http.HttpHeaders.CONTENT_RANGE));
     }
+
+    @Test
+    void downloadAudio_ValidId_Returns200WithContentDisposition(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path audioFile = tempDir.resolve("track.mp3");
+        java.nio.file.Files.write(audioFile, new byte[2048]);
+
+        Music music = new Music();
+        ReflectionTestUtils.setField(music, "id", 1);
+        music.setStoredName("track.mp3");
+        music.setOriginalFileName("original-track-name.mp3");
+        music.setAudioContentType("audio/mpeg");
+
+        when(musicRepository.findById(1)).thenReturn(Optional.of(music));
+        when(audioProcessingService.getAudioPath("track.mp3")).thenReturn(audioFile);
+
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response = musicService.downloadAudio(1);
+
+        assertEquals(org.springframework.http.HttpStatus.OK, response.getStatusCode());
+        assertEquals("attachment; filename=\"original-track-name.mp3\"; filename*=UTF-8''original-track-name.mp3", response.getHeaders().getFirst(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION));
+        assertEquals(2048, response.getHeaders().getContentLength());
+    }
 }

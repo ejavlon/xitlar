@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import uz.xitlar.dto.music.AudioMetadata;
 import uz.xitlar.dto.music.BulkMusicItemDto;
 import uz.xitlar.dto.music.BulkMusicUploadItemResponse;
+import uz.xitlar.dto.music.UploadTask;
 import uz.xitlar.entity.Album;
 import uz.xitlar.entity.Artist;
 import uz.xitlar.entity.Lyrics;
@@ -56,17 +57,26 @@ public class BulkMusicUploadProcessor {
     private static final long MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024L; // 50MB
 
     public BulkMusicUploadItemResponse processOne(
-            MultipartFile file,
-            BulkMusicItemDto itemDto,
+            UploadTask task,
             Map<Integer, Artist> artistCache,
             Map<Integer, Album> albumCache,
             Semaphore cpuSemaphore
     ) {
-        String originalFilename = file != null ? file.getOriginalFilename() : "unknown.mp3";
+        String originalFilename = task.originalFilename() != null ? task.originalFilename() : "unknown.mp3";
         String sanitizedFilename = originalFilename != null ? Paths.get(originalFilename).getFileName().toString() : "unknown.mp3";
+        BulkMusicItemDto itemDto = task.metadata();
+
+        // 0. Check early validation error
+        if (task.error() != null) {
+            return BulkMusicUploadItemResponse.builder()
+                    .fileName(sanitizedFilename)
+                    .status(UploadStatus.FAILED)
+                    .error(task.error())
+                    .build();
+        }
 
         // 1. Initial basic validation
-        if (file == null || file.isEmpty()) {
+        if (task.tempPath() == null || !Files.exists(task.tempPath()) || task.size() <= 0) {
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
                     .status(UploadStatus.FAILED)
@@ -74,7 +84,7 @@ public class BulkMusicUploadProcessor {
                     .build();
         }
 
-        if (file.getSize() > MAX_AUDIO_FILE_SIZE) {
+        if (task.size() > MAX_AUDIO_FILE_SIZE) {
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
                     .status(UploadStatus.FAILED)
@@ -90,7 +100,7 @@ public class BulkMusicUploadProcessor {
                     .build();
         }
 
-        String contentType = file.getContentType();
+        String contentType = task.contentType();
         if (contentType != null && !isAllowedContentType(contentType)) {
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
@@ -99,11 +109,12 @@ public class BulkMusicUploadProcessor {
                     .build();
         }
 
-        // 2. Magic bytes validation
-        try (InputStream is = file.getInputStream()) {
+        // 2. Magic bytes validation (from task.tempPath() on disk)
+        try (InputStream is = Files.newInputStream(task.tempPath())) {
             byte[] header = new byte[10];
             int read = is.read(header);
             if (read < 4) {
+                audioProcessingService.deleteIfExistsSilently(task.tempPath());
                 return BulkMusicUploadItemResponse.builder()
                         .fileName(sanitizedFilename)
                         .status(UploadStatus.FAILED)
@@ -115,6 +126,7 @@ public class BulkMusicUploadProcessor {
             boolean isMpegFrame = (header[0] & 0xFF) == 0xFF && (header[1] & 0xE0) == 0xE0;
 
             if (!isId3 && !isMpegFrame) {
+                audioProcessingService.deleteIfExistsSilently(task.tempPath());
                 return BulkMusicUploadItemResponse.builder()
                         .fileName(sanitizedFilename)
                         .status(UploadStatus.FAILED)
@@ -122,6 +134,7 @@ public class BulkMusicUploadProcessor {
                         .build();
             }
         } catch (IOException e) {
+            audioProcessingService.deleteIfExistsSilently(task.tempPath());
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
                     .status(UploadStatus.FAILED)
@@ -132,6 +145,7 @@ public class BulkMusicUploadProcessor {
         // 3. Resolve metadata and relationships
         String title = resolveTitle(itemDto, sanitizedFilename);
         if (title.isBlank()) {
+            audioProcessingService.deleteIfExistsSilently(task.tempPath());
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
                     .status(UploadStatus.FAILED)
@@ -145,6 +159,7 @@ public class BulkMusicUploadProcessor {
                     artistRepository.findById(id).orElse(null)
             );
             if (artist == null) {
+                audioProcessingService.deleteIfExistsSilently(task.tempPath());
                 return BulkMusicUploadItemResponse.builder()
                         .fileName(sanitizedFilename)
                         .status(UploadStatus.FAILED)
@@ -159,6 +174,7 @@ public class BulkMusicUploadProcessor {
                     albumRepository.findById(id).orElse(null)
             );
             if (album == null) {
+                audioProcessingService.deleteIfExistsSilently(task.tempPath());
                 return BulkMusicUploadItemResponse.builder()
                         .fileName(sanitizedFilename)
                         .status(UploadStatus.FAILED)
@@ -178,6 +194,7 @@ public class BulkMusicUploadProcessor {
             try {
                 lyricsService.validateLrc(itemDto.getLyrics().getIsSynced(), itemDto.getLyrics().getLrcContent());
             } catch (Exception e) {
+                audioProcessingService.deleteIfExistsSilently(task.tempPath());
                 return BulkMusicUploadItemResponse.builder()
                         .fileName(sanitizedFilename)
                         .status(UploadStatus.FAILED)
@@ -189,6 +206,7 @@ public class BulkMusicUploadProcessor {
         // 4. Pre-check Title + Artist duplicate
         if (artist != null && musicRepository.existsByTitleIgnoreCaseAndArtistId(title, artist.getId())) {
             Optional<Music> existing = musicRepository.findByTitleIgnoreCaseAndArtistId(title, artist.getId());
+            audioProcessingService.deleteIfExistsSilently(task.tempPath());
             return BulkMusicUploadItemResponse.builder()
                     .fileName(sanitizedFilename)
                     .status(UploadStatus.DUPLICATE)
@@ -198,24 +216,11 @@ public class BulkMusicUploadProcessor {
                     .build();
         }
 
-        // 5. Stream to temporary file
+        // 5. Get temporary file and resolve permanent destination
+        Path tempLocation = task.tempPath();
         String uuid = UUID.randomUUID().toString();
-        String tempName = "bulk_temp_" + uuid + ".mp3";
         String finalName = uuid + ".mp3";
-
-        Path tempLocation = audioProcessingService.getTempStorageDir().resolve(tempName).normalize();
         Path targetLocation = audioProcessingService.getAudioStorageDir().resolve(finalName).normalize();
-
-        try {
-            Files.copy(file.getInputStream(), tempLocation, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            audioProcessingService.deleteIfExistsSilently(tempLocation);
-            return BulkMusicUploadItemResponse.builder()
-                    .fileName(sanitizedFilename)
-                    .status(UploadStatus.FAILED)
-                    .error("Failed to store temporary audio file")
-                    .build();
-        }
 
         // 6. Calculate SHA-256 hash & check duplicate
         String audioHash;

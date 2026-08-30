@@ -35,6 +35,8 @@ public class MusicResponse {
     Integer trackNumber;
     Integer likeCount;
     Integer dislikeCount;
+    Boolean isLiked;
+    Boolean isDisliked;
     AudioFormat audioFormat;
     LocalDateTime addedDate;
     LyricsResponse lyrics;

@@ -158,7 +158,7 @@ public class CommentSecurityIntegrationTest {
                         .content("""
                                 {"text": "Anon text", "musicId": %d}
                                 """.formatted(testMusic.getId())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -170,7 +170,7 @@ public class CommentSecurityIntegrationTest {
                         .content("""
                                 {"text": "Hacked text"}
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -178,7 +178,7 @@ public class CommentSecurityIntegrationTest {
         Comment comment = createCommentForUser(user1, "Initial text");
 
         mockMvc.perform(delete("/api/v1/comments/" + comment.getId()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     // ================= USER =================

@@ -14,6 +14,7 @@ import uz.xitlar.enums.UploadStatus;
 import uz.xitlar.repository.MusicRepository;
 import uz.xitlar.util.AudioTestHelper;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,6 +41,25 @@ public class BulkMusicUploadConcurrencyAndPerformanceTest {
     @BeforeEach
     void cleanDb() {
         musicRepository.deleteAll();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void cleanStorage() {
+        try {
+            cleanDirectory(audioProcessingService.getAudioStorageDir());
+            cleanDirectory(audioProcessingService.getTempStorageDir());
+        } catch (Exception ignored) {}
+    }
+
+    private void cleanDirectory(Path dir) {
+        if (dir == null || !Files.exists(dir)) return;
+        try (var stream = Files.list(dir)) {
+            stream.forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {}
+            });
+        } catch (java.io.IOException ignored) {}
     }
 
     @Test

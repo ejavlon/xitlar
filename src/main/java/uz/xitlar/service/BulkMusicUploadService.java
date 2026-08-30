@@ -14,7 +14,9 @@ import uz.xitlar.entity.Artist;
 import uz.xitlar.enums.UploadStatus;
 import uz.xitlar.repository.AlbumRepository;
 import uz.xitlar.repository.ArtistRepository;
+import uz.xitlar.dto.music.UploadTask;
 
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -27,6 +29,7 @@ public class BulkMusicUploadService {
     private final BulkMusicUploadProcessor uploadProcessor;
     private final ArtistRepository artistRepository;
     private final AlbumRepository albumRepository;
+    private final AudioProcessingService audioProcessingService;
 
     @Value("${app.music.upload.max-files:50}")
     private int maxFiles = 50;
@@ -87,29 +90,53 @@ public class BulkMusicUploadService {
         int boundedCpuPermits = Math.max(1, cpuConcurrency);
         Semaphore cpuSemaphore = new Semaphore(boundedCpuPermits);
 
-        // 4. Concurrently process files using Java Virtual Threads
+        // 4. Copy multipart files to temp files synchronously in the request thread
+        List<UploadTask> uploadTasks = new ArrayList<>(totalFiles);
+        for (int i = 0; i < totalFiles; i++) {
+            MultipartFile file = files.get(i);
+            int fileIndex = i;
+
+            BulkMusicItemDto itemDto = null;
+            if (file.getOriginalFilename() != null) {
+                itemDto = metadataByName.get(file.getOriginalFilename().toLowerCase());
+            }
+            if (itemDto == null && metadataList != null && fileIndex < metadataList.size()) {
+                itemDto = metadataList.get(fileIndex);
+            }
+
+            UploadTask task;
+            try {
+                Path tempPath = audioProcessingService.copyToTemp(file);
+                task = new UploadTask(
+                        tempPath,
+                        file.getOriginalFilename(),
+                        file.getContentType(),
+                        file.getSize(),
+                        itemDto
+                );
+            } catch (Exception e) {
+                log.warn("Failed early validation/copy for bulk file: {}", file.getOriginalFilename(), e);
+                task = new UploadTask(
+                        null,
+                        file.getOriginalFilename(),
+                        file.getContentType(),
+                        file.getSize(),
+                        itemDto,
+                        e.getMessage()
+                );
+            }
+            uploadTasks.add(task);
+        }
+
+        // 5. Concurrently process files using Java Virtual Threads
         List<BulkMusicUploadItemResponse> results = new ArrayList<>(totalFiles);
 
         try (ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Callable<BulkMusicUploadItemResponse>> tasks = new ArrayList<>(totalFiles);
 
-            for (int i = 0; i < totalFiles; i++) {
-                final MultipartFile file = files.get(i);
-                final int fileIndex = i;
-
-                BulkMusicItemDto itemDto = null;
-                if (file.getOriginalFilename() != null) {
-                    itemDto = metadataByName.get(file.getOriginalFilename().toLowerCase());
-                }
-                if (itemDto == null && metadataList != null && fileIndex < metadataList.size()) {
-                    itemDto = metadataList.get(fileIndex);
-                }
-
-                final BulkMusicItemDto finalItemDto = itemDto;
-
+            for (UploadTask uploadTask : uploadTasks) {
                 tasks.add(() -> uploadProcessor.processOne(
-                        file,
-                        finalItemDto,
+                        uploadTask,
                         artistCache,
                         albumCache,
                         cpuSemaphore

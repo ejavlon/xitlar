@@ -183,20 +183,20 @@ public class PlaylistSecurityIntegrationTest {
         MockMultipartFile dataPart = new MockMultipartFile("data", "", MediaType.APPLICATION_JSON_VALUE, objectMapper.writeValueAsBytes(dto));
 
         mockMvc.perform(multipart("/api/v1/playlists").file(dataPart))
-                .andExpect(status().isForbidden());
-    }
+                .andExpect(status().isUnauthorized());
+     }
 
-    @Test
-    void anonymousUser_CannotAddMusic() throws Exception {
-        mockMvc.perform(post("/api/v1/playlists/" + testPlaylist.getId() + "/musics/" + testMusic1.getId()))
-                .andExpect(status().isForbidden());
-    }
+     @Test
+     void anonymousUser_CannotAddMusic() throws Exception {
+         mockMvc.perform(post("/api/v1/playlists/" + testPlaylist.getId() + "/musics/" + testMusic1.getId()))
+                 .andExpect(status().isUnauthorized());
+     }
 
-    @Test
-    void anonymousUser_CannotDeletePlaylist() throws Exception {
-        mockMvc.perform(delete("/api/v1/playlists/" + testPlaylist.getId()))
-                .andExpect(status().isForbidden());
-    }
+     @Test
+     void anonymousUser_CannotDeletePlaylist() throws Exception {
+         mockMvc.perform(delete("/api/v1/playlists/" + testPlaylist.getId()))
+                 .andExpect(status().isUnauthorized());
+     }
 
     // ==================== 2. REGULAR USER ACCESS (FORBIDDEN WRITE) ====================
 
@@ -478,7 +478,7 @@ public class PlaylistSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/playlists/" + testPlaylist.getId() + "/musics/bulk")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

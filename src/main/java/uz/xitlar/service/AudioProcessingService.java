@@ -66,24 +66,82 @@ public class AudioProcessingService {
             Genre genre,
             Integer trackNumber
     ) {
+        Path tempPath = copyToTemp(file);
+        try {
+            return processAndSaveTempAudio(
+                    tempPath,
+                    file.getOriginalFilename(),
+                    file.getContentType(),
+                    file.getSize(),
+                    expectedTitle,
+                    artist,
+                    album,
+                    genre,
+                    trackNumber
+            );
+        } catch (Exception e) {
+            deleteIfExistsSilently(tempPath);
+            throw e;
+        }
+    }
+
+    public Path copyToTemp(MultipartFile file) {
         validateAudioFile(file);
 
         String originalFilename = file.getOriginalFilename();
         String sanitizedOriginalName = originalFilename != null ? Paths.get(originalFilename).getFileName().toString() : "audio.mp3";
         String extension = "mp3";
+        int lastDot = sanitizedOriginalName.lastIndexOf('.');
+        if (lastDot > 0) {
+            extension = sanitizedOriginalName.substring(lastDot + 1);
+        }
 
-        String uuid = UUID.randomUUID().toString();
-        String tempName = "temp_" + uuid + "." + extension;
-        String finalName = uuid + "." + extension;
-
+        String tempName = "temp_" + UUID.randomUUID().toString() + "." + extension;
         Path tempLocation = tempStorageDir.resolve(tempName).normalize();
-        Path targetLocation = audioStorageDir.resolve(finalName).normalize();
 
         try {
             Files.copy(file.getInputStream(), tempLocation, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new FileStorageException("Failed to store temporary audio file", e);
         }
+        return tempLocation;
+    }
+
+    public AudioMetadata processAndSaveTempAudio(
+            Path tempLocation,
+            String originalFilename,
+            String contentType,
+            long size,
+            String expectedTitle,
+            Artist artist,
+            Album album,
+            Genre genre,
+            Integer trackNumber
+    ) {
+        // Validate magic bytes from the copied temporary file on disk
+        try (InputStream is = Files.newInputStream(tempLocation)) {
+            byte[] header = new byte[10];
+            int read = is.read(header);
+            if (read < 4) {
+                throw new InvalidAudioFileException("File is too small to be a valid audio file");
+            }
+
+            boolean isId3 = header[0] == 'I' && header[1] == 'D' && header[2] == '3';
+            boolean isMpegFrame = (header[0] & 0xFF) == 0xFF && (header[1] & 0xE0) == 0xE0;
+
+            if (!isId3 && !isMpegFrame) {
+                throw new InvalidAudioFileException("Invalid file format. File does not contain valid MP3 audio frames or ID3 header.");
+            }
+        } catch (IOException e) {
+            throw new InvalidAudioFileException("Could not read uploaded audio content for validation", e);
+        }
+
+        String sanitizedOriginalName = originalFilename != null ? Paths.get(originalFilename).getFileName().toString() : "audio.mp3";
+        String extension = "mp3";
+
+        String uuid = UUID.randomUUID().toString();
+        String finalName = uuid + "." + extension;
+        Path targetLocation = audioStorageDir.resolve(finalName).normalize();
 
         String audioHash = calculateSha256(tempLocation);
 
@@ -99,7 +157,6 @@ public class AudioProcessingService {
 
             AudioHeader header = audioFile.getAudioHeader();
 
-            // 1. Strict whitelist: Replace existing tag with a brand-new clean ID3v2.4 tag and wipe ID3v1
             org.jaudiotagger.tag.id3.ID3v24Tag cleanTag = new org.jaudiotagger.tag.id3.ID3v24Tag();
             audioFile.setTag(cleanTag);
             if (audioFile instanceof org.jaudiotagger.audio.mp3.MP3File mp3File) {
@@ -107,7 +164,6 @@ public class AudioProcessingService {
             }
             Tag tag = cleanTag;
 
-            // 2. Set ONLY trusted domain metadata
             if (expectedTitle != null && !expectedTitle.isBlank()) {
                 tag.setField(FieldKey.TITLE, expectedTitle);
             }
@@ -133,7 +189,6 @@ public class AudioProcessingService {
                 tag.setField(FieldKey.TRACK, String.valueOf(trackNumber));
             }
 
-            // 3. Album Cover Artwork embedding: Music -> Album -> Image (NEVER Artist image)
             if (album != null && album.getImage() != null && album.getImage().getStoredName() != null) {
                 Path albumImagePath = imageStorageDir.resolve(album.getImage().getStoredName()).normalize();
                 if (Files.exists(albumImagePath)) {
@@ -217,25 +272,6 @@ public class AudioProcessingService {
         String contentType = file.getContentType();
         if (contentType != null && !allowedContentTypes.contains(contentType.toLowerCase())) {
             throw new InvalidAudioFileException("Incompatible audio content type: " + contentType + ". Expected audio/mpeg.");
-        }
-
-        // Magic bytes inspection
-        try (InputStream is = file.getInputStream()) {
-            byte[] header = new byte[10];
-            int read = is.read(header);
-            if (read < 4) {
-                throw new InvalidAudioFileException("File is too small to be a valid audio file");
-            }
-
-            // Check ID3v2 ("ID3") or MPEG sync frame (0xFF 0xEx)
-            boolean isId3 = header[0] == 'I' && header[1] == 'D' && header[2] == '3';
-            boolean isMpegFrame = (header[0] & 0xFF) == 0xFF && (header[1] & 0xE0) == 0xE0;
-
-            if (!isId3 && !isMpegFrame) {
-                throw new InvalidAudioFileException("Invalid file format. File does not contain valid MP3 audio frames or ID3 header.");
-            }
-        } catch (IOException e) {
-            throw new InvalidAudioFileException("Could not read uploaded audio content for validation", e);
         }
     }
 

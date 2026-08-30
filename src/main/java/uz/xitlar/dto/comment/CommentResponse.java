@@ -15,6 +15,7 @@ public class CommentResponse {
     String text;
     LocalDateTime createdAt;
     Integer musicId;
+    Integer artistId;
     Integer userId;
     String userName;
 }

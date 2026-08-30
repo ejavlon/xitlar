@@ -78,6 +78,15 @@ public class UserService {
                 .build();
     }
 
+    public ResponseApi<UserResponse> getMe(String username) {
+        User user = findUserByUsernameOrThrow(username);
+        return ResponseApi.<UserResponse>builder()
+                .success(true)
+                .message("Success")
+                .data(toResponse(user))
+                .build();
+    }
+
     public ResponseApi<UserResponse> getUser(String actorUsername, Integer id){
         User actor = findUserByUsernameOrThrow(actorUsername);
         assertAdminOrModerator(actor);

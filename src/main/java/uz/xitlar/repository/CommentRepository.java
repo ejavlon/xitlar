@@ -18,6 +18,9 @@ public interface CommentRepository extends JpaRepository<Comment, Integer> {
     @EntityGraph(attributePaths = {"user", "music"})
     Page<Comment> findAllByUserId(Integer userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "artist"})
+    Page<Comment> findAllByArtistId(Integer artistId, Pageable pageable);
+
     @Override
     @EntityGraph(attributePaths = {"user", "music"})
     Optional<Comment> findById(Integer id);

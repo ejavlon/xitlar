@@ -94,7 +94,7 @@ public class LyricsSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/lyrics")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -102,13 +102,13 @@ public class LyricsSecurityIntegrationTest {
         mockMvc.perform(put("/api/v1/lyrics/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void anonymousUser_CannotDeleteLyrics() throws Exception {
         mockMvc.perform(delete("/api/v1/lyrics/1"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
