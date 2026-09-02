@@ -88,6 +88,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/images").hasAnyRole(MODERATOR.name(), ADMIN.name())
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/images/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
                         .requestMatchers(HttpMethod.GET, "/api/v1/artists", "/api/v1/artists/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/artists/*/vote").authenticated()
                         .requestMatchers("/api/v1/artists", "/api/v1/artists/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
                         .requestMatchers(HttpMethod.GET, "/api/v1/musics/liked").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/musics/*/like").authenticated()
@@ -99,7 +100,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/comments", "/api/v1/comments/**").permitAll()
                         .requestMatchers("/api/v1/comments", "/api/v1/comments/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/playlists", "/api/v1/playlists/**").permitAll()
-                        .requestMatchers("/api/v1/playlists", "/api/v1/playlists/**").hasAnyRole(MODERATOR.name(), ADMIN.name())
+                        .requestMatchers("/api/v1/playlists", "/api/v1/playlists/**").authenticated()
                         .anyRequest().authenticated()
                         )
                 .oauth2Login(oauth2 -> oauth2

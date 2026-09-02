@@ -22,6 +22,11 @@ import uz.xitlar.exception.DuplicateEntityException;
 import uz.xitlar.repository.MusicRepository;
 import uz.xitlar.repository.PlaylistMusicRepository;
 import uz.xitlar.repository.PlaylistRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import uz.xitlar.repository.PlaylistVoteRepository;
+import uz.xitlar.repository.UserRepository;
 
 import java.util.*;
 
@@ -35,6 +40,8 @@ public class PlaylistService {
     private final PlaylistMusicRepository playlistMusicRepository;
     private final MusicRepository musicRepository;
     private final ImageStorageService imageStorageService;
+    private final PlaylistVoteRepository playlistVoteRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public ResponseApi<PlaylistResponse> createPlaylist(PlaylistCreateDto dto, MultipartFile file) {
@@ -43,8 +50,13 @@ public class PlaylistService {
             throw new IllegalArgumentException("Title must not be blank");
         }
 
+        String tagName = dto.getTagName() != null && !dto.getTagName().trim().isEmpty()
+                ? dto.getTagName().trim().replaceAll("^#", "")
+                : "playlists";
+
         Playlist playlist = Playlist.builder()
                 .title(trimmedTitle)
+                .tagName(tagName)
                 .description(dto.getDescription())
                 .build();
 
@@ -90,6 +102,11 @@ public class PlaylistService {
                 throw new IllegalArgumentException("Title must not be blank");
             }
             playlist.setTitle(trimmedTitle);
+        }
+
+        if (dto.getTagName() != null) {
+            String cleanTag = dto.getTagName().trim().replaceAll("^#", "");
+            playlist.setTagName(cleanTag.isEmpty() ? "playlists" : cleanTag);
         }
 
         if (dto.getDescription() != null) {
@@ -406,19 +423,76 @@ public class PlaylistService {
                 .build();
     }
 
+    @Transactional
+    public ResponseApi<PlaylistResponse> votePlaylist(Integer playlistId, PlaylistVoteDto dto, UserDetails principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User must be authenticated");
+        }
+
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new DataNotFoundException("User not found: " + principal.getUsername()));
+
+        Playlist playlist = playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new DataNotFoundException("Playlist not found with ID: " + playlistId));
+
+        Optional<PlaylistVote> existingVote = playlistVoteRepository.findByUserIdAndPlaylistId(user.getId(), playlistId);
+
+        if (existingVote.isPresent()) {
+            PlaylistVote vote = existingVote.get();
+            vote.setRating(dto.getRating());
+            playlistVoteRepository.save(vote);
+        } else {
+            PlaylistVote vote = PlaylistVote.builder()
+                    .user(user)
+                    .playlist(playlist)
+                    .rating(dto.getRating())
+                    .build();
+            playlistVoteRepository.save(vote);
+        }
+
+        int voteCount = playlistVoteRepository.countByPlaylistId(playlistId);
+        double averageRating = playlistVoteRepository.averageRatingByPlaylistId(playlistId);
+
+        playlist.setVoteCount(voteCount);
+        playlist.setAverageRating(Math.round(averageRating * 10.0) / 10.0);
+        playlistRepository.save(playlist);
+
+        return ResponseApi.<PlaylistResponse>builder()
+                .success(true)
+                .message("Vote successfully recorded")
+                .data(toDetailResponse(playlist))
+                .build();
+    }
+
+    public ResponseApi<Page<PlaylistResponse>> getPlaylistsByTag(String tagName, Pageable pageable) {
+        String cleanTag = tagName != null ? tagName.trim().replaceAll("^#", "") : "";
+        Page<PlaylistResponse> playlists = playlistRepository.findByTagNameIgnoreCase(cleanTag, pageable).map(this::toListResponse);
+        return ResponseApi.<Page<PlaylistResponse>>builder()
+                .success(true)
+                .message("Playlists for tag #" + cleanTag + " fetched")
+                .data(playlists)
+                .build();
+    }
+
     public PlaylistResponse toDetailResponse(Playlist playlist) {
         List<PlaylistMusic> tracks = playlistMusicRepository.findByPlaylistIdOrderByPositionAsc(playlist.getId());
         List<PlaylistMusicResponse> trackResponses = tracks.stream()
                 .map(this::toPlaylistMusicResponse)
                 .toList();
 
+        Integer userRating = getCurrentUserPlaylistRating(playlist.getId());
+
         return PlaylistResponse.builder()
                 .id(playlist.getId())
                 .title(playlist.getTitle())
+                .tagName(playlist.getTagName() != null ? playlist.getTagName() : "playlists")
                 .description(playlist.getDescription())
                 .image(playlist.getImage() != null ? imageStorageService.toResponse(playlist.getImage()) : null)
                 .musics(trackResponses)
                 .trackCount(trackResponses.size())
+                .voteCount(playlist.getVoteCount() != null ? playlist.getVoteCount() : 0)
+                .averageRating(playlist.getAverageRating() != null ? playlist.getAverageRating() : 0.0)
+                .userRating(userRating)
                 .createdAt(playlist.getCreatedAt())
                 .createdBy(toUserResponse(playlist.getCreatedBy()))
                 .build();
@@ -426,16 +500,45 @@ public class PlaylistService {
 
     public PlaylistResponse toListResponse(Playlist playlist) {
         int count = playlist.getPlaylistMusics() != null ? playlist.getPlaylistMusics().size() : 0;
+        Integer userRating = getCurrentUserPlaylistRating(playlist.getId());
+
         return PlaylistResponse.builder()
                 .id(playlist.getId())
                 .title(playlist.getTitle())
+                .tagName(playlist.getTagName() != null ? playlist.getTagName() : "playlists")
                 .description(playlist.getDescription())
                 .image(playlist.getImage() != null ? imageStorageService.toResponse(playlist.getImage()) : null)
                 .musics(List.of())
                 .trackCount(count)
+                .voteCount(playlist.getVoteCount() != null ? playlist.getVoteCount() : 0)
+                .averageRating(playlist.getAverageRating() != null ? playlist.getAverageRating() : 0.0)
+                .userRating(userRating)
                 .createdAt(playlist.getCreatedAt())
                 .createdBy(toUserResponse(playlist.getCreatedBy()))
                 .build();
+    }
+
+    private Integer getCurrentUserPlaylistRating(Integer playlistId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+            Object principalObj = authentication.getPrincipal();
+            String username = null;
+            if (principalObj instanceof UserDetails userDetails) {
+                username = userDetails.getUsername();
+            } else if (principalObj instanceof User u) {
+                username = u.getUsername();
+            }
+            if (username != null) {
+                Optional<User> userOpt = userRepository.findByUsername(username);
+                if (userOpt.isPresent()) {
+                    Optional<PlaylistVote> vote = playlistVoteRepository.findByUserIdAndPlaylistId(userOpt.get().getId(), playlistId);
+                    if (vote.isPresent()) {
+                        return vote.get().getRating();
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private PlaylistMusicResponse toPlaylistMusicResponse(PlaylistMusic pm) {

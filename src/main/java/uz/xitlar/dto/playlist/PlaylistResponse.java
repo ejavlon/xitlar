@@ -20,10 +20,14 @@ import java.util.List;
 public class PlaylistResponse {
     Integer id;
     String title;
+    String tagName;
     String description;
     ImageResponse image;
     List<PlaylistMusicResponse> musics;
     Integer trackCount;
+    Integer voteCount;
+    Double averageRating;
+    Integer userRating;
     LocalDateTime createdAt;
     UserResponse createdBy;
 }

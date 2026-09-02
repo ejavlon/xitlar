@@ -20,5 +20,6 @@ public class ArtistResponse {
     private Integer voteCount;
     private Double averageRating;
     private ImageResponse image;
+    private Integer userRating; // current user's rating (1-5), null if not voted
 
 }

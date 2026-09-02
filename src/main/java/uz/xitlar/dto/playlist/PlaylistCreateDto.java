@@ -20,6 +20,9 @@ public class PlaylistCreateDto {
     @Size(min = 1, max = 255, message = "Title must be between 1 and 255 characters")
     String title;
 
+    @Size(max = 100, message = "Tag name must not exceed 100 characters")
+    String tagName;
+
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     String description;
 }

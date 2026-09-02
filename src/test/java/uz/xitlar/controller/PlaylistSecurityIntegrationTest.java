@@ -56,6 +56,12 @@ public class PlaylistSecurityIntegrationTest {
     private PlaylistMusicRepository playlistMusicRepository;
 
     @Autowired
+    private uz.xitlar.repository.CommentRepository commentRepository;
+
+    @Autowired
+    private uz.xitlar.repository.ArtistVoteRepository artistVoteRepository;
+
+    @Autowired
     private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
 
     @Autowired
@@ -78,6 +84,10 @@ public class PlaylistSecurityIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        playlistMusicRepository.deleteAll();
+        playlistRepository.deleteAll();
+        commentRepository.deleteAll();
+        artistVoteRepository.deleteAll();
         oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
 
@@ -198,31 +208,35 @@ public class PlaylistSecurityIntegrationTest {
                  .andExpect(status().isUnauthorized());
      }
 
-    // ==================== 2. REGULAR USER ACCESS (FORBIDDEN WRITE) ====================
+    // ==================== 2. REGULAR USER ACCESS (ALLOWED WRITE) ====================
 
     @Test
-    void regularUser_CannotCreatePlaylist() throws Exception {
+    void regularUser_CanCreatePlaylist() throws Exception {
         PlaylistCreateDto dto = PlaylistCreateDto.builder().title("User Playlist").build();
         MockMultipartFile dataPart = new MockMultipartFile("data", "", MediaType.APPLICATION_JSON_VALUE, objectMapper.writeValueAsBytes(dto));
 
         mockMvc.perform(multipart("/api/v1/playlists")
                         .file(dataPart)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.title").value("User Playlist"));
     }
 
     @Test
-    void regularUser_CannotAddMusic() throws Exception {
+    void regularUser_CanAddMusic() throws Exception {
         mockMvc.perform(post("/api/v1/playlists/" + testPlaylist.getId() + "/musics/" + testMusic1.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
-    void regularUser_CannotDeletePlaylist() throws Exception {
+    void regularUser_CanDeletePlaylist() throws Exception {
         mockMvc.perform(delete("/api/v1/playlists/" + testPlaylist.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     // ==================== 3. MODERATOR & ADMIN ACCESS ====================
@@ -482,7 +496,7 @@ public class PlaylistSecurityIntegrationTest {
     }
 
     @Test
-    void addMusicsBulk_UserRole_ReturnsForbidden() throws Exception {
+    void addMusicsBulk_UserRole_ReturnsSuccess() throws Exception {
         String body = """
                 {"musicIds": [%d, %d]}
                 """.formatted(testMusic1.getId(), testMusic2.getId());
@@ -491,7 +505,7 @@ public class PlaylistSecurityIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test

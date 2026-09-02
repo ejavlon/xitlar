@@ -27,7 +27,7 @@ public class PlaylistController {
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "title", "createdAt");
 
-    @Operation(summary = "Yangi playlist yaratish", description = "Tizimga yangi playlist qo'shish (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Yangi playlist yaratish", description = "Tizimga yangi playlist qo'shish (tizim foydalanuvchilari uchun)")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseApi<PlaylistResponse> create(
             @Valid @RequestPart("data") PlaylistCreateDto dto,
@@ -35,7 +35,7 @@ public class PlaylistController {
         return playlistService.createPlaylist(dto, file);
     }
 
-    @Operation(summary = "Playlistni yangilash", description = "Playlist ma'lumotlarini yangilash (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistni yangilash", description = "Playlist ma'lumotlarini yangilash")
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseApi<PlaylistResponse> update(
             @PathVariable Integer id,
@@ -65,13 +65,13 @@ public class PlaylistController {
         return playlistService.getPlaylistById(id);
     }
 
-    @Operation(summary = "Playlistni o'chirish", description = "Playlistni tizimdan o'chirish (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistni o'chirish", description = "Playlistni tizimdan o'chirish")
     @DeleteMapping("/{id}")
     public ResponseApi<Void> delete(@PathVariable Integer id) {
         return playlistService.deletePlaylist(id);
     }
 
-    @Operation(summary = "Playlistga musiqa qo'shish", description = "Playlistga yangi musiqani oxiriga qo'shish (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistga musiqa qo'shish", description = "Playlistga yangi musiqani oxiriga qo'shish")
     @PostMapping("/{playlistId}/musics/{musicId}")
     public ResponseApi<PlaylistResponse> addMusic(
             @PathVariable Integer playlistId,
@@ -79,7 +79,7 @@ public class PlaylistController {
         return playlistService.addMusicToPlaylist(playlistId, musicId);
     }
 
-    @Operation(summary = "Playlistga bir nechta musiqa qo'shish (bulk)", description = "Playlistga bir vaqtda 1-50 ta mavjud musiqani oxiriga qo'shish (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistga bir nechta musiqa qo'shish (bulk)", description = "Playlistga bir vaqtda 1-50 ta mavjud musiqani oxiriga qo'shish")
     @PostMapping("/{playlistId}/musics/bulk")
     public ResponseApi<PlaylistBulkAddResponse> addMusicsBulk(
             @PathVariable Integer playlistId,
@@ -87,7 +87,7 @@ public class PlaylistController {
         return playlistService.addMusicsToPlaylist(playlistId, dto);
     }
 
-    @Operation(summary = "Playlistdan musiqani o'chirish", description = "Playlistdan musiqani olib tashlash (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistdan musiqani o'chirish", description = "Playlistdan musiqani olib tashlash")
     @DeleteMapping("/{playlistId}/musics/{musicId}")
     public ResponseApi<PlaylistResponse> removeMusic(
             @PathVariable Integer playlistId,
@@ -95,11 +95,32 @@ public class PlaylistController {
         return playlistService.removeMusicFromPlaylist(playlistId, musicId);
     }
 
-    @Operation(summary = "Playlistdagi musiqalar tartibini o'zgartirish", description = "Playlistdagi musiqalarning position tartibini yangilash (faqat ADMIN yoki MODERATOR uchun)")
+    @Operation(summary = "Playlistdagi musiqalar tartibini o'zgartirish", description = "Playlistdagi musiqalarning position tartibini yangilash")
     @PutMapping("/{playlistId}/musics/reorder")
     public ResponseApi<PlaylistResponse> reorderMusics(
             @PathVariable Integer playlistId,
             @Valid @RequestBody PlaylistReorderDto dto) {
         return playlistService.reorderPlaylistMusics(playlistId, dto);
+    }
+
+    @Operation(summary = "Playlistga ovoz berish (Rating)", description = "Playlistga 1-5 baho berish/ovoz berish")
+    @PostMapping("/{id}/vote")
+    public ResponseApi<PlaylistResponse> vote(
+            @PathVariable Integer id,
+            @Valid @RequestBody PlaylistVoteDto dto,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails principal) {
+        return playlistService.votePlaylist(id, dto, principal);
+    }
+
+    @Operation(summary = "Tag bo'yicha playlistlarni olish", description = "Muayyan tag name (masalan, retro) bo'yicha playlistlar ro'yxatini olish")
+    @GetMapping("/tag/{tagName}")
+    public ResponseApi<Page<PlaylistResponse>> getByTag(
+            @PathVariable String tagName,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return playlistService.getPlaylistsByTag(tagName, pageable);
     }
 }

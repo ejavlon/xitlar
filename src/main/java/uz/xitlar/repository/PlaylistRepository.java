@@ -24,4 +24,7 @@ public interface PlaylistRepository extends JpaRepository<Playlist, Integer> {
             "playlistMusics.music.album.image"
     })
     Optional<Playlist> findById(Integer id);
+
+    @EntityGraph(attributePaths = {"image", "createdBy"})
+    Page<Playlist> findByTagNameIgnoreCase(String tagName, Pageable pageable);
 }

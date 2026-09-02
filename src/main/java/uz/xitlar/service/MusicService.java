@@ -137,6 +137,12 @@ public class MusicService {
 
             Music saved = musicRepository.save(music);
 
+            // Update artist track count
+            if (artist != null) {
+                artist.setCountOfTrack(artist.getCountOfTrack() + 1);
+                artistRepository.save(artist);
+            }
+
             if (dto.getLyrics() != null) {
                 Lyrics lyrics = lyricsService.createNestedLyrics(saved, dto.getLyrics());
                 saved.addLyrics(lyrics);
@@ -158,11 +164,20 @@ public class MusicService {
         Music music = musicRepository.findById(id)
                 .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + id));
 
-        Artist artist = music.getArtist();
+        Artist oldArtist = music.getArtist();
+        Artist artist = oldArtist;
         if (dto.getArtistId() != null && (artist == null || !artist.getId().equals(dto.getArtistId()))) {
             artist = artistRepository.findById(dto.getArtistId())
                     .orElseThrow(() -> new DataNotFoundException("Artist not found with ID: " + dto.getArtistId()));
             music.setArtist(artist);
+
+            // Update track counts when artist changes
+            if (oldArtist != null) {
+                oldArtist.setCountOfTrack(Math.max(0, oldArtist.getCountOfTrack() - 1));
+                artistRepository.save(oldArtist);
+            }
+            artist.setCountOfTrack(artist.getCountOfTrack() + 1);
+            artistRepository.save(artist);
         }
 
         Album album = music.getAlbum();
@@ -279,6 +294,13 @@ public class MusicService {
     public ResponseApi<Void> deleteMusic(Integer id) {
         Music music = musicRepository.findById(id)
                 .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + id));
+
+        // Update artist track count
+        if (music.getArtist() != null) {
+            Artist artist = music.getArtist();
+            artist.setCountOfTrack(Math.max(0, artist.getCountOfTrack() - 1));
+            artistRepository.save(artist);
+        }
 
         final String storedName = music.getStoredName();
         musicRepository.delete(music);

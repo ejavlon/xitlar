@@ -9,11 +9,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -22,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import uz.xitlar.dto.artist.ArtistCreateDto;
 import uz.xitlar.dto.artist.ArtistResponse;
 import uz.xitlar.dto.artist.ArtistUpdateDto;
+import uz.xitlar.dto.artist.ArtistVoteDto;
 import uz.xitlar.dto.common.ResponseApi;
 import uz.xitlar.service.ArtistService;
 
@@ -73,6 +77,15 @@ public class ArtistController {
     @GetMapping("/{id}")
     public ResponseApi<ArtistResponse> getById(@PathVariable Integer id) {
         return artistService.getArtistById(id);
+    }
+
+    @Operation(summary = "Artistga vote berish", description = "Artistga 1-5 gacha rating berish (faqat autentifikatsiya qilingan foydalanuvchilar uchun)")
+    @PostMapping("/{id}/vote")
+    public ResponseApi<ArtistResponse> vote(
+            @PathVariable Integer id,
+            @Valid @RequestBody ArtistVoteDto dto,
+            @AuthenticationPrincipal UserDetails principal) {
+        return artistService.voteArtist(id, dto, principal);
     }
 
     @Operation(summary = "Artistni o'chirish", description = "Artistni tizimdan o'chirish (faqat ADMIN yoki MODERATOR uchun)")

@@ -23,6 +23,15 @@ public class Playlist extends BaseEntity {
     @Column(nullable = false)
     String title;
 
+    @Column(length = 100)
+    String tagName;
+
+    @Builder.Default
+    Integer voteCount = 0;
+
+    @Builder.Default
+    Double averageRating = 0.0;
+
     @Column(length = 1000)
     String description;
 
