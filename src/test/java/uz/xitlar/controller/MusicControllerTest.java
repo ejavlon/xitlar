@@ -16,9 +16,9 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import uz.xitlar.dto.MusicCreateDto;
-import uz.xitlar.dto.MusicResponse;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.music.MusicCreateDto;
+import uz.xitlar.dto.music.MusicResponse;
 import uz.xitlar.entity.Music;
 import uz.xitlar.exception.GlobalExceptionHandler;
 import uz.xitlar.repository.MusicRepository;
@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -46,19 +47,12 @@ public class MusicControllerTest {
     @Mock
     private MusicService musicService;
 
-    @Mock
-    private AudioProcessingService audioProcessingService;
-
-    @Mock
-    private MusicRepository musicRepository;
-
     @InjectMocks
     private MusicController musicController;
 
     @TempDir
     Path tempFolder;
 
-    private Music sampleMusic;
     private Path sampleAudioPath;
 
     @BeforeEach
@@ -81,20 +75,18 @@ public class MusicControllerTest {
             audioBytes[i] = (byte) (i % 128);
         }
         Files.write(sampleAudioPath, audioBytes);
-
-        sampleMusic = Music.builder()
-                .title("Test Song")
-                .storedName("test-track.mp3")
-                .originalFileName("song.mp3")
-                .audioSize(2048L)
-                .audioContentType("audio/mpeg")
-                .build();
     }
 
     @Test
     void streamAudio_NoRange_Returns200AndFullLength() throws Exception {
-        when(musicRepository.findById(1)).thenReturn(Optional.of(sampleMusic));
-        when(audioProcessingService.getAudioPath("test-track.mp3")).thenReturn(sampleAudioPath);
+        org.springframework.core.io.Resource resource = new org.springframework.core.io.ByteArrayResource(Files.readAllBytes(sampleAudioPath));
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response = org.springframework.http.ResponseEntity.ok()
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .contentLength(2048)
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .body(resource);
+
+        when(musicService.streamAudio(eq(1), any(HttpHeaders.class))).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/musics/1/audio"))
                 .andExpect(status().isOk())
@@ -106,11 +98,18 @@ public class MusicControllerTest {
 
     @Test
     void streamAudio_ValidRange_Returns206PartialContent() throws Exception {
-        when(musicRepository.findById(1)).thenReturn(Optional.of(sampleMusic));
-        when(audioProcessingService.getAudioPath("test-track.mp3")).thenReturn(sampleAudioPath);
-
         byte[] allBytes = Files.readAllBytes(sampleAudioPath);
         byte[] expectedSlice = java.util.Arrays.copyOfRange(allBytes, 0, 1024);
+        org.springframework.core.io.Resource partialResource = new org.springframework.core.io.ByteArrayResource(expectedSlice);
+
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response = org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.PARTIAL_CONTENT)
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .header(HttpHeaders.CONTENT_RANGE, "bytes 0-1023/2048")
+                .contentLength(1024)
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .body(partialResource);
+
+        when(musicService.streamAudio(eq(1), any(HttpHeaders.class))).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/musics/1/audio")
                         .header(HttpHeaders.RANGE, "bytes=0-1023"))
@@ -123,51 +122,40 @@ public class MusicControllerTest {
     }
 
     @Test
-    void streamAudio_OpenEndedRange_Returns206AndRemainingBytes() throws Exception {
-        when(musicRepository.findById(1)).thenReturn(Optional.of(sampleMusic));
-        when(audioProcessingService.getAudioPath("test-track.mp3")).thenReturn(sampleAudioPath);
-
-        byte[] allBytes = Files.readAllBytes(sampleAudioPath);
-        byte[] expectedSlice = java.util.Arrays.copyOfRange(allBytes, 1024, 2048);
-
-        mockMvc.perform(get("/api/v1/musics/1/audio")
-                        .header(HttpHeaders.RANGE, "bytes=1024-"))
-                .andExpect(status().isPartialContent())
-                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
-                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 1024-2047/2048"))
-                .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, "1024"))
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
-                .andExpect(content().bytes(expectedSlice));
-    }
-
-    @Test
-    void streamAudio_SuffixRange_Returns206AndLastBytes() throws Exception {
-        when(musicRepository.findById(1)).thenReturn(Optional.of(sampleMusic));
-        when(audioProcessingService.getAudioPath("test-track.mp3")).thenReturn(sampleAudioPath);
-
-        byte[] allBytes = Files.readAllBytes(sampleAudioPath);
-        byte[] expectedSlice = java.util.Arrays.copyOfRange(allBytes, 2048 - 500, 2048);
-
-        mockMvc.perform(get("/api/v1/musics/1/audio")
-                        .header(HttpHeaders.RANGE, "bytes=-500"))
-                .andExpect(status().isPartialContent())
-                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
-                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 1548-2047/2048"))
-                .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, "500"))
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
-                .andExpect(content().bytes(expectedSlice));
-    }
-
-    @Test
     void streamAudio_UnsatisfiableRange_Returns416() throws Exception {
-        when(musicRepository.findById(1)).thenReturn(Optional.of(sampleMusic));
-        when(audioProcessingService.getAudioPath("test-track.mp3")).thenReturn(sampleAudioPath);
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response = org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .header(HttpHeaders.CONTENT_RANGE, "bytes */2048")
+                .build();
+
+        when(musicService.streamAudio(eq(1), any(HttpHeaders.class))).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/musics/1/audio")
                         .header(HttpHeaders.RANGE, "bytes=99999999-"))
                 .andExpect(status().isRequestedRangeNotSatisfiable())
                 .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes */2048"));
+    }
+
+    @Test
+    void downloadAudio_ValidId_Returns200WithContentDisposition() throws Exception {
+        org.springframework.core.io.Resource resource = new org.springframework.core.io.ByteArrayResource(Files.readAllBytes(sampleAudioPath));
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response = org.springframework.http.ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"test-track.mp3\"")
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .contentLength(2048)
+                .contentType(MediaType.parseMediaType("audio/mpeg"))
+                .body(resource);
+
+        when(musicService.downloadAudio(eq(1))).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/musics/1/download"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"test-track.mp3\""))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, "2048"))
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "audio/mpeg"))
+                .andExpect(content().bytes(Files.readAllBytes(sampleAudioPath)));
     }
 
     @Test

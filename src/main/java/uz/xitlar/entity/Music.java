@@ -12,7 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "musics")
+@Table(name = "musics", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_musics_title_artist", columnNames = {"title", "artist_id"}),
+        @UniqueConstraint(name = "uk_musics_audio_hash", columnNames = {"audio_hash"})
+})
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
@@ -35,6 +38,9 @@ public class Music extends BaseEntity {
 
     @Column(nullable = false)
     String audioContentType;
+
+    @Column(name = "audio_hash", length = 64)
+    String audioHash;
 
     Integer duration;
 
@@ -82,6 +88,10 @@ public class Music extends BaseEntity {
 
     @OneToOne(mappedBy = "music", cascade = CascadeType.ALL, orphanRemoval = true)
     Lyrics lyrics;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "music", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<PlaylistMusic> playlistMusics = new ArrayList<>();
 
     public void addComment(Comment comment) {
         comments.add(comment);

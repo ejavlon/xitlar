@@ -137,7 +137,7 @@ class ImageControllerTest {
 
         mockMvc.perform(multipart(BASE_URL)
                         .file(file))
-                .andExpect(status().isForbidden()); // Security returns 403 Forbidden for unauthorized requests by default unless configured otherwise
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

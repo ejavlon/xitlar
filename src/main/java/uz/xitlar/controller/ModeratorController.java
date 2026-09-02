@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uz.xitlar.dto.ResponseApi;
-import uz.xitlar.dto.UpdateUserDto;
-import uz.xitlar.dto.UserResponse;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.user.UpdateUserDto;
+import uz.xitlar.dto.user.UserResponse;
 import uz.xitlar.service.UserService;
 
 import java.util.List;

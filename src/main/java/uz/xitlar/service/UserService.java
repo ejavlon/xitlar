@@ -7,14 +7,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import uz.xitlar.dto.ResponseApi;
-import uz.xitlar.dto.ResetPasswordDto;
-import uz.xitlar.dto.SignInDto;
-import uz.xitlar.dto.SignUpDto;
-import uz.xitlar.dto.UpdatePasswordDto;
-import uz.xitlar.dto.UpdateRoleDto;
-import uz.xitlar.dto.UpdateUserDto;
-import uz.xitlar.dto.UserResponse;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.user.ResetPasswordDto;
+import uz.xitlar.dto.user.SignInDto;
+import uz.xitlar.dto.user.SignUpDto;
+import uz.xitlar.dto.user.UpdatePasswordDto;
+import uz.xitlar.dto.user.UpdateRoleDto;
+import uz.xitlar.dto.user.UpdateUserDto;
+import uz.xitlar.dto.user.UserResponse;
 import uz.xitlar.entity.User;
 import uz.xitlar.enums.Role;
 import uz.xitlar.exception.DataNotFoundException;
@@ -75,6 +75,15 @@ public class UserService {
                 .success(true)
                 .message("Welcome to system")
                 .data(jwtService.generateToken(user))
+                .build();
+    }
+
+    public ResponseApi<UserResponse> getMe(String username) {
+        User user = findUserByUsernameOrThrow(username);
+        return ResponseApi.<UserResponse>builder()
+                .success(true)
+                .message("Success")
+                .data(toResponse(user))
                 .build();
     }
 

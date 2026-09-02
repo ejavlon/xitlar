@@ -8,8 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import uz.xitlar.dto.ImageResponse;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.image.ImageResponse;
 import uz.xitlar.entity.Image;
 import uz.xitlar.service.ImageStorageService;
 

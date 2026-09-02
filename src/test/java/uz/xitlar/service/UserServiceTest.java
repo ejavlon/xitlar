@@ -7,9 +7,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import uz.xitlar.dto.ResetPasswordDto;
-import uz.xitlar.dto.UpdateRoleDto;
-import uz.xitlar.dto.UpdateUserDto;
+import uz.xitlar.dto.user.ResetPasswordDto;
+import uz.xitlar.dto.user.UpdateRoleDto;
+import uz.xitlar.dto.user.UpdateUserDto;
 import uz.xitlar.entity.User;
 import uz.xitlar.enums.Role;
 import uz.xitlar.repository.UserRepository;
@@ -32,6 +32,9 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Autowired
+    private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private User moderator;
@@ -40,6 +43,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
+        oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
 
         moderator = userRepository.save(User.builder()

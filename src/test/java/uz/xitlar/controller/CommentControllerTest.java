@@ -16,10 +16,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import uz.xitlar.dto.CommentCreateDto;
-import uz.xitlar.dto.CommentResponse;
-import uz.xitlar.dto.CommentUpdateDto;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.comment.CommentCreateDto;
+import uz.xitlar.dto.comment.CommentResponse;
+import uz.xitlar.dto.comment.CommentUpdateDto;
+import uz.xitlar.dto.common.ResponseApi;
 import uz.xitlar.exception.DataNotFoundException;
 import uz.xitlar.exception.GlobalExceptionHandler;
 import uz.xitlar.service.CommentService;
@@ -94,6 +94,9 @@ public class CommentControllerTest {
     @Test
     void create_MissingMusicId_Returns400() throws Exception {
         CommentCreateDto dto = new CommentCreateDto("Text", null);
+
+        when(commentService.createComment(any(CommentCreateDto.class), any()))
+                .thenThrow(new IllegalArgumentException("musicId must be positive"));
 
         mockMvc.perform(post("/api/v1/comments")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -175,6 +178,48 @@ public class CommentControllerTest {
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(get("/api/v1/comments/music/-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getByMusicId_TypeMismatch_Returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/comments/music/not-a-number"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Parameter 'musicId' must be of type 'Integer'"));
+    }
+
+    @Test
+    void getByMusicId_UnknownSortBy_FallsBackToDefault() throws Exception {
+        Page<CommentResponse> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+
+        when(commentService.getCommentsByMusic(eq(5), any(Pageable.class)))
+                .thenReturn(ResponseApi.<Page<CommentResponse>>builder().success(true).data(page).build());
+
+        mockMvc.perform(get("/api/v1/comments/music/5?sortBy=nonexistent_field"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void create_TextTooLong_Returns400() throws Exception {
+        String longText = "a".repeat(2001);
+        CommentCreateDto dto = new CommentCreateDto(longText, 1);
+
+        mockMvc.perform(post("/api/v1/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void update_TextTooLong_Returns400() throws Exception {
+        String longText = "a".repeat(2001);
+        CommentUpdateDto dto = new CommentUpdateDto(longText);
+
+        mockMvc.perform(put("/api/v1/comments/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest());
     }
 

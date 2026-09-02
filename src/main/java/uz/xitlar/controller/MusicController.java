@@ -5,30 +5,29 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import uz.xitlar.dto.MusicCreateDto;
-import uz.xitlar.dto.MusicResponse;
-import uz.xitlar.dto.MusicUpdateDto;
-import uz.xitlar.dto.ResponseApi;
-import uz.xitlar.entity.Music;
-import uz.xitlar.exception.DataNotFoundException;
-import uz.xitlar.repository.MusicRepository;
-import uz.xitlar.service.AudioProcessingService;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.music.BulkMusicItemDto;
+import uz.xitlar.dto.music.BulkMusicUploadResponse;
+import uz.xitlar.dto.music.MusicCreateDto;
+import uz.xitlar.dto.music.MusicResponse;
+import uz.xitlar.dto.music.MusicUpdateDto;
+import uz.xitlar.service.BulkMusicUploadService;
 import uz.xitlar.service.MusicService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Tag(name = "Music Controller", description = "Musiqalar bilan ishlash uchun API")
@@ -38,8 +37,11 @@ import java.util.List;
 public class MusicController {
 
     private final MusicService musicService;
-    private final MusicRepository musicRepository;
-    private final AudioProcessingService audioProcessingService;
+    private final BulkMusicUploadService bulkMusicUploadService;
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "id", "title", "addedDate", "likeCount", "dislikeCount", "duration", "trackNumber", "genre"
+    );
 
     @Operation(summary = "Yangi musiqa qo'shish", description = "Tizimga yangi musiqa qo'shish (faqat ADMIN yoki MODERATOR uchun)")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -47,6 +49,14 @@ public class MusicController {
             @Valid @RequestPart("data") MusicCreateDto dto,
             @RequestPart("file") MultipartFile file) {
         return musicService.createMusic(dto, file);
+    }
+
+    @Operation(summary = "Musiqalarni bulk/batch yuklash", description = "Bir vaqtda 1-50 ta musiqani yuklash (faqat ADMIN yoki MODERATOR uchun)")
+    @PostMapping(value = "/bulk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseApi<BulkMusicUploadResponse> uploadBulk(
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestPart(value = "metadata", required = false) List<BulkMusicItemDto> metadata) {
+        return bulkMusicUploadService.uploadBulk(files, metadata);
     }
 
     @Operation(summary = "Musiqani yangilash", description = "Musiqa ma'lumotlarini yangilash (faqat ADMIN yoki MODERATOR uchun)")
@@ -65,8 +75,11 @@ public class MusicController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDirection) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        String safeSortBy = ALLOWED_SORT_FIELDS.contains(sortBy) ? sortBy : "id";
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(direction, safeSortBy));
         return musicService.getAllMusics(pageable);
     }
 
@@ -87,95 +100,35 @@ public class MusicController {
     public ResponseEntity<Resource> streamAudio(
             @PathVariable Integer id,
             @RequestHeader HttpHeaders headers) {
+        return musicService.streamAudio(id, headers);
+    }
 
-        Music music = musicRepository.findById(id)
-                .orElseThrow(() -> new DataNotFoundException("Music not found with ID: " + id));
+    @Operation(summary = "Audio faylni yuklab olish", description = "Musiqa faylini yuklab olish (Content-Disposition: attachment)")
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Resource> downloadAudio(
+            @PathVariable Integer id) {
+        return musicService.downloadAudio(id);
+    }
 
-        Path path = audioProcessingService.getAudioPath(music.getStoredName());
-        Resource resource;
-        try {
-            resource = new UrlResource(path.toUri());
-            if (!resource.exists() || !resource.isReadable()) {
-                throw new DataNotFoundException("Audio file not found or not readable");
-            }
-        } catch (DataNotFoundException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new DataNotFoundException("Audio file not found");
-        }
+    @Operation(summary = "Foydalanuvchi yoqtirgan musiqalarni olish", description = "Tizimga kirgan foydalanuvchi yoqtirgan musiqalar ro'yxatini olish")
+    @GetMapping("/liked")
+    public ResponseApi<List<MusicResponse>> getLikedMusics(@AuthenticationPrincipal UserDetails principal) {
+        return musicService.getLikedMusics(principal);
+    }
 
-        long contentLength;
-        try {
-            contentLength = resource.contentLength();
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    @Operation(summary = "Musiqani yoqtirish (Like)", description = "Musiqani yoqtirish yoki yoqtirishni bekor qilish (toggle)")
+    @PostMapping("/{id}/like")
+    public ResponseApi<MusicResponse> toggleLike(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal UserDetails principal) {
+        return musicService.toggleLike(id, principal);
+    }
 
-        MediaType mediaType = MediaType.parseMediaType(
-                music.getAudioContentType() != null ? music.getAudioContentType() : "audio/mpeg"
-        );
-
-        List<HttpRange> httpRanges;
-        try {
-            httpRanges = headers.getRange();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
-                    .build();
-        }
-
-        // 1. No Range requested -> 200 OK with the COMPLETE audio file
-        if (httpRanges == null || httpRanges.isEmpty()) {
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .contentLength(contentLength)
-                    .contentType(mediaType)
-                    .body(resource);
-        }
-
-        // 2. Range requested
-        HttpRange range = httpRanges.get(0);
-        long start;
-        long end;
-        try {
-            start = range.getRangeStart(contentLength);
-            end = range.getRangeEnd(contentLength);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
-                    .build();
-        }
-
-        // Validate range bounds
-        if (start >= contentLength || end >= contentLength || start > end) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .header(HttpHeaders.CONTENT_RANGE, "bytes */" + contentLength)
-                    .build();
-        }
-
-        long rangeLength = end - start + 1;
-
-        try (InputStream is = resource.getInputStream()) {
-            long skipped = 0;
-            while (skipped < start) {
-                long s = is.skip(start - skipped);
-                if (s <= 0) break;
-                skipped += s;
-            }
-            byte[] buffer = is.readNBytes((int) rangeLength);
-            ByteArrayResource partialResource = new ByteArrayResource(buffer);
-
-            return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                    .header(HttpHeaders.CONTENT_RANGE, String.format("bytes %d-%d/%d", start, end, contentLength))
-                    .contentLength(rangeLength)
-                    .contentType(mediaType)
-                    .body(partialResource);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    @Operation(summary = "Musiqani yoqtirmaslik (Dislike)", description = "Musiqani yoqtirmaslik yoki yoqtirmaslikni bekor qilish (toggle)")
+    @PostMapping("/{id}/dislike")
+    public ResponseApi<MusicResponse> toggleDislike(
+            @PathVariable Integer id,
+            @AuthenticationPrincipal UserDetails principal) {
+        return musicService.toggleDislike(id, principal);
     }
 }

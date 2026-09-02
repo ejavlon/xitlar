@@ -1,7 +1,5 @@
 package uz.xitlar.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -32,23 +30,46 @@ import java.util.List;
 public class User extends BaseEntity implements UserDetails, Serializable {
 
     @Column(name = "first_name", nullable = false)
-    @JsonProperty(value = "first_name")
     String firstName;
 
     @Column(name = "last_name", nullable = false)
-    @JsonProperty(value = "last_name")
     String lastName;
 
     @Column(nullable = false, unique = true)
     String username;
 
-    @Column(nullable = false)
-    @JsonIgnore
+    @Column(name = "email", unique = true)
+    String email;
+
+    @Column
+    @com.fasterxml.jackson.annotation.JsonIgnore
     String password;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     Role role;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    List<OAuthAccount> oauthAccounts = new java.util.ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+        name = "user_liked_musics",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "music_id")
+    )
+    @Builder.Default
+    List<Music> likedMusics = new java.util.ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+        name = "user_disliked_musics",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "music_id")
+    )
+    @Builder.Default
+    List<Music> dislikedMusics = new java.util.ArrayList<>();
 
     @Override
     @NullMarked

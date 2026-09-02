@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uz.xitlar.dto.ResponseApi;
-import uz.xitlar.dto.SignInDto;
-import uz.xitlar.dto.SignUpDto;
-import uz.xitlar.dto.UpdatePasswordDto;
+import uz.xitlar.dto.common.ResponseApi;
+import uz.xitlar.dto.user.SignInDto;
+import uz.xitlar.dto.user.SignUpDto;
+import uz.xitlar.dto.user.UpdatePasswordDto;
+import uz.xitlar.dto.user.UserResponse;
 import uz.xitlar.service.UserService;
 
 @Tag(name = "User & Auth Controller", description = "Foydalanuvchilar, autentifikatsiya va profil amallari")
@@ -43,5 +44,11 @@ public class UserController {
     public ResponseApi<Void> changeOwnPassword(@AuthenticationPrincipal UserDetails principal,
                                                @Valid @RequestBody UpdatePasswordDto updatePasswordDto) {
         return userService.changeOwnPassword(principal.getUsername(), updatePasswordDto);
+    }
+
+    @Operation(summary = "Joriy foydalanuvchi ma'lumotlarini olish", description = "Tizimga kirgan foydalanuvchi ma'lumotlari va rolini olish")
+    @GetMapping("/users/me")
+    public ResponseApi<UserResponse> getMe(@AuthenticationPrincipal UserDetails principal) {
+        return userService.getMe(principal.getUsername());
     }
 }

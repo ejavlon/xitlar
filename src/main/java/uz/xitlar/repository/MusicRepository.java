@@ -12,6 +12,14 @@ public interface MusicRepository extends JpaRepository<Music, Integer> {
 
     boolean existsByTitleIgnoreCaseAndArtistId(String title, Integer artistId);
 
+    Optional<Music> findByTitleIgnoreCaseAndArtistId(String title, Integer artistId);
+
+    Optional<Music> findByAudioHash(String audioHash);
+
+    Optional<Music> findFirstByAudioHash(String audioHash);
+
+    boolean existsByAudioHash(String audioHash);
+
     @EntityGraph(attributePaths = {"artist", "artist.image", "album", "album.image", "lyrics"})
     Page<Music> findAll(Pageable pageable);
 

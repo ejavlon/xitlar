@@ -1,0 +1,16 @@
+package uz.xitlar.dto.common;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Data
+public class ResponseApi<T> {
+    private T data;
+    private Boolean success;
+    private String message;
+}

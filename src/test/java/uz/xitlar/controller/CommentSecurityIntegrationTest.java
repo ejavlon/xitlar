@@ -46,6 +46,9 @@ public class CommentSecurityIntegrationTest {
     private CommentRepository commentRepository;
 
     @Autowired
+    private uz.xitlar.repository.OAuthAccountRepository oauthAccountRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private String adminToken;
@@ -61,6 +64,7 @@ public class CommentSecurityIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        oauthAccountRepository.deleteAll();
         userRepository.deleteByUsernameNot(ADMIN_USERNAME);
 
         admin = userRepository.findByUsername(ADMIN_USERNAME).orElseGet(() ->
@@ -154,7 +158,7 @@ public class CommentSecurityIntegrationTest {
                         .content("""
                                 {"text": "Anon text", "musicId": %d}
                                 """.formatted(testMusic.getId())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -166,7 +170,7 @@ public class CommentSecurityIntegrationTest {
                         .content("""
                                 {"text": "Hacked text"}
                                 """))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -174,7 +178,7 @@ public class CommentSecurityIntegrationTest {
         Comment comment = createCommentForUser(user1, "Initial text");
 
         mockMvc.perform(delete("/api/v1/comments/" + comment.getId()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     // ================= USER =================

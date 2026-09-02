@@ -3,18 +3,28 @@ package uz.xitlar.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import uz.xitlar.dto.ArtistCreateDto;
-import uz.xitlar.dto.ArtistResponse;
-import uz.xitlar.dto.ArtistUpdateDto;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.artist.ArtistCreateDto;
+import uz.xitlar.dto.artist.ArtistResponse;
+import uz.xitlar.dto.artist.ArtistUpdateDto;
+import uz.xitlar.dto.artist.ArtistVoteDto;
+import uz.xitlar.dto.common.ResponseApi;
 import uz.xitlar.entity.Artist;
+import uz.xitlar.entity.ArtistVote;
 import uz.xitlar.entity.Image;
+import uz.xitlar.entity.User;
 import uz.xitlar.exception.DataNotFoundException;
 import uz.xitlar.exception.DuplicateEntityException;
 import uz.xitlar.repository.ArtistRepository;
+import uz.xitlar.repository.ArtistVoteRepository;
+import uz.xitlar.repository.UserRepository;
+
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +33,8 @@ public class ArtistService {
 
     private final ArtistRepository artistRepository;
     private final ImageStorageService imageStorageService;
+    private final ArtistVoteRepository artistVoteRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public ResponseApi<ArtistResponse> createArtist(ArtistCreateDto dto, MultipartFile file) {
@@ -124,7 +136,74 @@ public class ArtistService {
                 .build();
     }
 
+    @Transactional
+    public ResponseApi<ArtistResponse> voteArtist(Integer artistId, ArtistVoteDto dto, UserDetails principal) {
+        if (principal == null) {
+            throw new org.springframework.security.access.AccessDeniedException("User must be authenticated");
+        }
+
+        User user = userRepository.findByUsername(principal.getUsername())
+                .orElseThrow(() -> new DataNotFoundException("User not found: " + principal.getUsername()));
+
+        Artist artist = artistRepository.findById(artistId)
+                .orElseThrow(() -> new DataNotFoundException("Artist not found with ID: " + artistId));
+
+        Optional<ArtistVote> existingVote = artistVoteRepository.findByUserIdAndArtistId(user.getId(), artistId);
+
+        if (existingVote.isPresent()) {
+            // Update existing vote
+            ArtistVote vote = existingVote.get();
+            vote.setRating(dto.getRating());
+            artistVoteRepository.save(vote);
+        } else {
+            // Create new vote
+            ArtistVote vote = ArtistVote.builder()
+                    .user(user)
+                    .artist(artist)
+                    .rating(dto.getRating())
+                    .build();
+            artistVoteRepository.save(vote);
+        }
+
+        // Recalculate artist stats
+        int voteCount = artistVoteRepository.countByArtistId(artistId);
+        double averageRating = artistVoteRepository.averageRatingByArtistId(artistId);
+
+        artist.setVoteCount(voteCount);
+        artist.setAverageRating(Math.round(averageRating * 10.0) / 10.0); // round to 1 decimal
+        artistRepository.save(artist);
+
+        return ResponseApi.<ArtistResponse>builder()
+                .success(true)
+                .message("Vote successfully recorded")
+                .data(toResponse(artist))
+                .build();
+    }
+
     private ArtistResponse toResponse(Artist artist) {
+        Integer userRating = null;
+
+        // Get current user's rating if authenticated
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+            Object principalObj = authentication.getPrincipal();
+            String username = null;
+            if (principalObj instanceof UserDetails userDetails) {
+                username = userDetails.getUsername();
+            } else if (principalObj instanceof User u) {
+                username = u.getUsername();
+            }
+            if (username != null) {
+                Optional<User> userOpt = userRepository.findByUsername(username);
+                if (userOpt.isPresent()) {
+                    Optional<ArtistVote> vote = artistVoteRepository.findByUserIdAndArtistId(userOpt.get().getId(), artist.getId());
+                    if (vote.isPresent()) {
+                        userRating = vote.get().getRating();
+                    }
+                }
+            }
+        }
+
         return ArtistResponse.builder()
                 .id(artist.getId())
                 .name(artist.getName())
@@ -133,6 +212,7 @@ public class ArtistService {
                 .voteCount(artist.getVoteCount())
                 .averageRating(artist.getAverageRating())
                 .image(artist.getImage() != null ? imageStorageService.toResponse(artist.getImage()) : null)
+                .userRating(userRating)
                 .build();
     }
 }

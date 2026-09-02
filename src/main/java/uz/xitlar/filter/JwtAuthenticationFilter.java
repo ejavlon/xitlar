@@ -61,11 +61,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 SecurityContextHolder.getContext().setAuthentication(token);
             }
-        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException e) {
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            log.debug("Expired JWT: {}", e.getMessage());
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException | UsernameNotFoundException e) {
             log.debug("Rejecting invalid JWT: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);
+    }
 
+    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        String json = String.format("{\"success\":false,\"message\":\"%s\",\"data\":null}", message.replace("\"", "\\\""));
+        response.getWriter().write(json);
+        response.getWriter().flush();
     }
 }

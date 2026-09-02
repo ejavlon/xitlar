@@ -11,7 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-import uz.xitlar.dto.ResponseApi;
+import uz.xitlar.dto.common.ResponseApi;
 
 import java.util.stream.Collectors;
 
@@ -57,6 +57,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 
+    @ExceptionHandler(OAuthAuthenticationException.class)
+    public ResponseEntity<ResponseApi<Void>> handleOAuthAuthentication(OAuthAuthenticationException e) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ResponseApi<Void>> handleAccessDenied(AccessDeniedException e) {
         return build(HttpStatus.FORBIDDEN, "Access denied");
@@ -78,7 +83,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<ResponseApi<Void>> handleFileStorage(FileStorageException e) {
         log.error("File storage error: {}", e.getMessage(), e);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "File storage failed: " + e.getMessage());
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "File storage operation failed");
     }
 
     @ExceptionHandler(InvalidAudioFileException.class)
@@ -96,6 +101,14 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.PAYLOAD_TOO_LARGE, "File size exceeds the maximum allowed limit");
     }
 
+    @ExceptionHandler({
+            org.springframework.web.context.request.async.AsyncRequestNotUsableException.class,
+            org.apache.catalina.connector.ClientAbortException.class
+    })
+    public void handleClientAbort(Exception e) {
+        log.info("Client connection aborted or request not usable: {}", e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ResponseApi<Void>> handleUnexpected(Exception e) {
         log.error("Unhandled exception", e);
@@ -105,6 +118,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ResponseApi<Void>> handleIllegalArgument(IllegalArgumentException e) {
         return build(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ResponseApi<Void>> handleMethodArgumentTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException e) {
+        String message = String.format("Parameter '%s' must be of type '%s'", e.getName(),
+                e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "valid type");
+        return build(HttpStatus.BAD_REQUEST, message);
     }
 
     private ResponseEntity<ResponseApi<Void>> build(HttpStatus status, String message) {

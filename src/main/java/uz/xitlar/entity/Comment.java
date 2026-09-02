@@ -25,8 +25,12 @@ public class Comment extends BaseEntity {
     LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "music_id", nullable = false)
+    @JoinColumn(name = "music_id", nullable = true)
     Music music;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "artist_id", nullable = true)
+    Artist artist;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
